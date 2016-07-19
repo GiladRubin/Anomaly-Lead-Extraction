@@ -10,8 +10,15 @@ ipak(c("data.table", "forecast", "zoo", "lubridate", "stringr",
 raw_dt <- fread(input = "./Raw Data/new_requests.csv")
 
 ## Select Only Informative Features
-dt <- raw_dt[, .(TimeStamp, RoleInst, Continent, Province, OpName, 
-                             Country, Host, Response, ReqDuration)]
+dt <- unique(raw_dt[, .(TimeStamp, 
+                        RoleInst, 
+                        Continent, 
+                        Province, 
+                        OpName, 
+                        Country, 
+                        Host, 
+                        Response, 
+                        ReqDuration)])
 
 ## Convert Timestamp String to Timestamp
 dt[, TimeStamp := fastPOSIXct(TimeStamp, tz = "GMT")]
@@ -32,7 +39,7 @@ op_on_columns(dt, categorical_columns, function(x) {as.factor(x)})
 
 ## (Continuous data flow stopped on 2015-10-07 at 18:00)
 dt <- dt[TimeStamp >= as.POSIXct('2016-01-01 00:00')
-        & TimeStamp < as.POSIXct('2016-01-11 00:00')]
+        & TimeStamp < as.POSIXct('2016-01-12 00:00')]
 
 ## Decide on Window Size (In Minutes)
 win_size = 60
@@ -66,10 +73,13 @@ arima_fit <- auto.arima(x_clean, xreg=cbind(seas1,seas2)
 seas1.f <- fourier(x_clean, K=4, h=windows_in_day * 7)
 seas2.f <- fourier(ts(x_clean, freq=windows_in_day * 7), 
                           K=4, h=windows_in_day * 7)
-arima_fc <- forecast(arima_fit, xreg=cbind(seas1.f,seas2.f))
+arima_fc <- forecast(arima_fit, 
+                     xreg=cbind(seas1.f,seas2.f), 
+                     h = 1)
 
 plot(arima_fc)
 plot(x_clean)
-lines(fitted.Arima(fit), col = 3)
-accuracy(arima_fc)
-accuracy(tbats_fc)
+lines(fitted.Arima(arima_fit), col = 3)
+
+accuracy(arima_fit)
+accuracy(tbats_fit)
