@@ -31,9 +31,9 @@ op_on_columns(dt, "Province", function (x) {str_replace_all(x, "[^[:alnum:]]", "
 #replace_empty_values_with_na(dt, c("Country", "Continent", "Province"))
 
 ## Convert String Columns to Categories
-categorical_columns <- setdiff(colnames(dt), c("TimeStamp", "ReqDuration"))
-categorical_columns
-op_on_columns(dt, categorical_columns, function(x) {as.factor(x)})
+# categorical_columns <- setdiff(colnames(dt), c("TimeStamp", "ReqDuration"))
+# categorical_columns
+# op_on_columns(dt, categorical_columns, function(x) {as.factor(x)})
 
 ## Subset dataset to contain only full data
 
