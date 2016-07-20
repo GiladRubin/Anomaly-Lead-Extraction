@@ -45,36 +45,20 @@ plot(x_clean)
 # tbats_fc <- forecast(tbats_fit, h=(60/win_size)*24*7)
 # plot(tbats_fc)
 
-seas1 <- fourier(x_clean, K=4)
-seas2 <- fourier(ts(x_clean, freq=windows_in_day * 7), K=4)
-arima_fit <- auto.arima(x_clean
-                        ,xreg=cbind(seas1,seas2)
-                        ,seasonal = FALSE)
-accuracy(arima_fit)
+# seas1 <- fourier(x_clean, K=4)
+# seas2 <- fourier(ts(x_clean, freq=windows_in_day * 7), K=4)
+# arima_fit <- auto.arima(x_clean
+#                         ,xreg=cbind(seas1,seas2)
+#                         ,seasonal = FALSE)
+# accuracy(arima_fit)
 
-stl <- tsoutliers(x, iqr_factor = 3)
+# outliers <- tsoutliers(x = x
+#                        ,iqr_factor = 3
+#                        ,fitted_values = fitted(arima_fit))
 
-plot(x)
-lines(x[indices] ~ time(x)[indices]
-      ,type = "p"
-      ,col = as.character(clusters))
-stl_indices <- stl$index
-lines(x[stl_indices] ~ time(x)[stl_indices]
-      ,type = "p"
-      ,pch = 20)
-
-length(intersect(stl_indices, indices)) / length(stl_indices)
-
-length(intersect(indices, stl_indices)) / length(indices)
-
-# plot(x_clean)
-# lines(fitted(arima_fit), col = 3)
-
-
-
-outliers <- tsoutliers(x = x
-                       ,iqr_factor = 3
-                       ,fitted_values = fitted(arima_fit))
+iqr_factor <- 3
+outliers <- tsoutliers(x, 
+                       iqr_factor = iqr_factor)
 
 indices <- outliers$index
 residuals <- outliers$residuals
@@ -91,7 +75,25 @@ lines(x[indices] ~ time(x)[indices]
       ,type = "p"
       ,col = as.character(clusters))
 
+
+# plot(x)
+# lines(x[indices] ~ time(x)[indices]
+#       ,type = "p"
+#       ,col = as.character(clusters))
+# stl_indices <- stl$index
+# lines(x[stl_indices] ~ time(x)[stl_indices]
+#       ,type = "p"
+#       ,pch = 20)
+# 
+# length(intersect(stl_indices, indices)) / length(stl_indices)
+# 
+# length(intersect(indices, stl_indices)) / length(indices)
+
 saveRDS(dt, "dt_time_window.rds")
 saveRDS(clusters, "clusters.rds")
-saveRDS(arima_fit, "arima_fit.rds")
+#saveRDS(arima_fit, "arima_fit.rds")
 saveRDS(outliers, "outliers.rds")
+saveRDS(win_size, "win_size.rds")
+saveRDS(iqr_factor, "iqr_factor.rds")
+anomaly_num <- 20
+saveRDS(anomaly_num, "anomaly_num.rds")

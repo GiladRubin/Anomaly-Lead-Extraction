@@ -93,7 +93,7 @@ stl_resid <- function(x)
   # Use super-smoother on the (seasonally adjusted) data
   tt <- 1:n
   mod <- supsmu(tt,x)
-  resid <- x - mod$y
+  resid <- (x - mod$y) / sd(mod$y)
   resid
 }
 
@@ -101,9 +101,11 @@ stl_resid <- function(x)
 tsoutliers <- function(x, iterate=2, 
                        lambda=NULL, 
                        iqr_factor = 3,
-                       fitted_values = NULL)
+                       fitted_values = NULL,
+                       index_for_inspection = 1)
 {
   # Identify and fill missing values
+  index_distance <- NULL
   missng <- is.na(x)
   nmiss <- sum(missng)
   if(nmiss > 0L)
@@ -119,7 +121,7 @@ tsoutliers <- function(x, iterate=2,
   {
     resid <- stl_resid(xx)
   } else {
-    resid <- xx - fitted_values
+    resid <- (xx - fitted_values) / sd(fitted_values)
   }
   
   # Make sure missing values are not interpeted as outliers
@@ -148,17 +150,25 @@ tsoutliers <- function(x, iterate=2,
                       iterate=1, 
                       lambda=lambda, 
                       fitted_values = fitted_values,
-                      iqr_factor = iqr_factor)
+                      iqr_factor = iqr_factor,
+                      index_for_inspection = index_for_inspection)
     if(length(tmp$index) > 0) # Found some more
     {
+      index_distance <- tmp$index_distance
       outliers <- sort(c(outliers,tmp$index))
       x[outliers] <- NA
       x <- na.interp(x, lambda=lambda)
     }
   }
   
+  if (is.null(index_distance))
+  {
+    index_distance <- resid[index_for_inspection]
+  }
+  
   # Return outlier indexes and replacements
   return(list(index=outliers, 
               replacements=x[outliers], 
-              residuals = resid[outliers]))
+              residuals = resid[outliers],
+              index_distance = index_distance))
 }
