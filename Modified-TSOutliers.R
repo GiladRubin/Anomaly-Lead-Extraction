@@ -100,7 +100,7 @@ stl_resid <- function(x)
 # Function to identify time series outlieres
 tsoutliers <- function(x, iterate=2, 
                        lambda=NULL, 
-                       outlier_power = 3,
+                       iqr_factor = 3,
                        fitted_values = NULL)
 {
   # Identify and fill missing values
@@ -129,7 +129,7 @@ tsoutliers <- function(x, iterate=2,
   # Limits of acceptable residuals
   resid.q <- quantile(resid, prob=c(0.25,0.75), na.rm=TRUE)
   iqr <- diff(resid.q)
-  limits <- resid.q + outlier_power*iqr*c(-1,1)
+  limits <- resid.q + iqr_factor*iqr*c(-1,1)
   
   # Find residuals outside limits
   if((limits[2]-limits[1]) > 1e-14)
@@ -148,7 +148,7 @@ tsoutliers <- function(x, iterate=2,
                       iterate=1, 
                       lambda=lambda, 
                       fitted_values = fitted_values,
-                      outlier_power = outlier_power)
+                      iqr_factor = iqr_factor)
     if(length(tmp$index) > 0) # Found some more
     {
       outliers <- sort(c(outliers,tmp$index))
@@ -160,5 +160,5 @@ tsoutliers <- function(x, iterate=2,
   # Return outlier indexes and replacements
   return(list(index=outliers, 
               replacements=x[outliers], 
-              power = resid[outliers]))
+              residuals = resid[outliers]))
 }

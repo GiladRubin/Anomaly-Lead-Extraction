@@ -31,7 +31,7 @@ x_clean <- ts(agg_trim_dt$Value, frequency = windows_in_day)
 plot(x_clean)
 # x_clean <- tsclean(x, replace.missing = TRUE)
 
-# outliers <- tsoutliers(x, outlier_power = 1.5)
+# outliers <- tsoutliers(x, iqr_factor = 1.5)
 # indices <- outliers$index
 # plot(x)
 # lines(x[indices] ~ time(x)[indices], type = "p", col = 3)
@@ -50,18 +50,36 @@ seas2 <- fourier(ts(x_clean, freq=windows_in_day * 7), K=4)
 arima_fit <- auto.arima(x_clean
                         ,xreg=cbind(seas1,seas2)
                         ,seasonal = FALSE)
+accuracy(arima_fit)
+
+stl <- tsoutliers(x, iqr_factor = 3)
+
+plot(x)
+lines(x[indices] ~ time(x)[indices]
+      ,type = "p"
+      ,col = as.character(clusters))
+stl_indices <- stl$index
+lines(x[stl_indices] ~ time(x)[stl_indices]
+      ,type = "p"
+      ,pch = 20)
+
+length(intersect(stl_indices, indices)) / length(stl_indices)
+
+length(intersect(indices, stl_indices)) / length(indices)
 
 # plot(x_clean)
 # lines(fitted(arima_fit), col = 3)
 
+
+
 outliers <- tsoutliers(x = x
-                       ,outlier_power = 2
+                       ,iqr_factor = 3
                        ,fitted_values = fitted(arima_fit))
 
 indices <- outliers$index
-powers <- outliers$power
+residuals <- outliers$residuals
 
-clusters <- discretize(x = powers
+clusters <- discretize(x = residuals
                       ,method = "cluster"
                       ,ordered = TRUE
                       ,categories = 3
