@@ -11,7 +11,7 @@ source(file = "Modified-TSOutliers.R")
 dt <- readRDS("dt.rds")
 
 ## Decide on Window Size (In Minutes)
-win_size = 30
+win_size = 5
 dt[, time_window := align.time(TimeStamp, win_size * 60)]
 
 agg_dt <- dt[, .(Value = mean(ReqDuration)), 
@@ -26,7 +26,9 @@ agg_trim_dt <- trim_dt[, .(Value = mean(ReqDuration)),
 
 windows_in_day <- (60 / win_size) * 24
 x <- ts(agg_dt$Value, frequency = windows_in_day)
+plot(x)
 x_clean <- ts(agg_trim_dt$Value, frequency = windows_in_day)
+plot(x_clean)
 # x_clean <- tsclean(x, replace.missing = TRUE)
 
 # outliers <- tsoutliers(x, outlier_power = 1.5)
@@ -49,8 +51,11 @@ arima_fit <- auto.arima(x_clean
                         ,xreg=cbind(seas1,seas2)
                         ,seasonal = FALSE)
 
+# plot(x_clean)
+# lines(fitted(arima_fit), col = 3)
+
 outliers <- tsoutliers(x = x
-                       ,outlier_power = 3
+                       ,outlier_power = 2
                        ,fitted_values = fitted(arima_fit))
 
 indices <- outliers$index

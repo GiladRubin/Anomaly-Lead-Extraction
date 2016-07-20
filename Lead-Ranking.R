@@ -4,7 +4,7 @@ source(file = "Auxiliary-Functions.R")
 
 ## Install Packages
 ipak(c("data.table", "forecast", "zoo", "lubridate", "stringr", 
-       "fasttime", "xts", "arules", "rpart", "rpart.plot"))
+       "fasttime", "xts", "arules", "rpart", "partykit", "rpart.plot"))
 
 # input : dt, fitted values, anomaly time/index
 # output : ranked list of tuples
@@ -25,7 +25,7 @@ dt <- merge(dt, fit_dt, by = "time_window")
 dt[, residuals := ReqDuration - fitted_value]
 
 anomaly_times <- unique(dt[anomaly == TRUE, time_window])
-anomaly_time <- anomaly_times[7]
+anomaly_time <- anomaly_times[8]
 
 # train regression tree only on the data at anomaly time
 categorical_columns <- setdiff(colnames(dt), 
@@ -34,9 +34,10 @@ categorical_columns <- setdiff(colnames(dt),
                                  "time_window",
                                  "fitted_value",
                                  "anomaly",
-                                 "residuals",
-                                 "Province",
-                                 "Country"))
+                                 "residuals"))
+                                 #"Province",
+                                 #"Country"))
+
 categorical_indices <- which(names(dt) %in% categorical_columns)
 value <- which(names(dt) == "residuals")
 
@@ -46,18 +47,18 @@ train_dt <- dt[time_window == anomaly_time,
 op_on_columns(train_dt, categorical_columns, function(x) {as.factor(x)})
 str(train_dt)
 
-tree <- rpart(formula = residuals ~ ., data = train_dt)
-
-tree$frame
-
+tree <- rpart(formula = residuals ~ .
+              ,data = train_dt
+              ,control = rpart.control(minsplit = 1
+                                       ,minbucket = 1
+                                       ,cp = 0.01))
 tree_plot <- prp(x = tree, type = 1, extra = 1 ,fallen.leaves = T,
                  digits = 4, varlen = 0, faclen = 1, round = 1.4
                  ,shadow.col = "gray", branch.lty = 2)
                  #box.col = colors[y_discretized])
 
-tree$variable.importance
-
 # find which vertices should be left (anomalies)
+
 
 # calculate Q1, Q3
 # Limits of acceptable residuals
