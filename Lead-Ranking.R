@@ -44,59 +44,83 @@ categorical_columns <- setdiff(colnames(dt),
 categorical_indices <- which(names(dt) %in% categorical_columns)
 value <- which(names(dt) == "residuals")
 
-train_dt <- dt[time_window == anomaly_time, 
+window_dt <- dt[time_window == anomaly_time, 
                c(categorical_indices, value), with = F]
 
-op_on_columns(train_dt, categorical_columns, function(x) {as.factor(x)})
-get_anomaly_limits <- function (x, iqr_factor = 3)
+op_on_columns(window_dt, categorical_columns, function(x) {as.factor(x)})
+
+value_count <- sapply(window_dt[, categorical_columns, with = F]
+                        , FUN = function(x) {length(unique(x))})
+value_count
+
+
+## Insert k, features and get all the combinations possible
+k = 3
+k_comb <- list()
+for (m in 2:k)
 {
-  resid.q <- quantile(x, prob=c(0.25,0.75), na.rm=TRUE)
-  iqr <- diff(resid.q)
-  limits <- resid.q + iqr_factor*iqr*c(-1,1)
-  limits
+  #m <- 1
+  comb <- combn(categorical_columns, m)
+  combinations <- list()
+  for (i in 1:ncol(comb))
+  {
+    #i <- 1
+    tuple <- comb[, i]
+    values <- list()
+    for (j in 1:m)
+    {
+      #j <- 1
+      values[[j]] <- unique(window_dt[, get(tuple[j])])
+    }
+    combinations[[i]] <- as.data.table(expand.grid(values))
+    setnames(combinations[[i]], tuple)
+  }
+  k_comb[[m]] <- combinations
 }
 
-limits <- get_anomaly_limits(dt[time_window < anomaly_time, residuals])
+#get original distance
+tuples_distances <- data.table(tuple = "All"
+                               ,distance = original_distance
+                               ,overall_anomalies = 1.0 
+                               ,unique_anomalies = 0.0)
 
-tree <- rpart(formula = residuals ~ .
-              ,data = train_dt
-              ,control = rpart.control(minsplit = 1
-                                       ,minbucket = 1
-                                       ,cp = 0.01))
-
-tree_plot <- prp(x = tree, type = 1, extra = 1 ,fallen.leaves = T,
-                 digits = 4, varlen = 0, faclen = 1, round = 1.4
-                 ,shadow.col = "gray", branch.lty = 2)
-                 #box.col = colors[y_discretized])
-
-nodes <- tree$frame$yval
-
-if (outliers$residuals > 0) ## anomaly is above expected value 
+k_comb[[2]]
+for (combinations in k_comb)
 {
-  anomaly_indices <- which(nodes > limits[2])
-  anomaly_nodes <- as.numeric(row.names(tree$frame[anomaly_indices, ]))
-  #for each node - compress path and return tuples
-  path <- path.rpart(tree, anomaly_nodes[2], 0)[[1]]
+  for (combination in combinations)
+  {
+    for (i in 1:nrow(combination))
+    {
+      tuple <- combination[i]
+      indices_to_filter <- 1:nrow(dt)
+      for (col in colnames(tuple))
+      {
+        column_indices <- which(dt[, get(col)] == tuple[, get(col)])
+        indices_to_filter <- intersect(indices_to_filter, column_indices)
+      }
+      filtered_dt <- dt[!indices_to_filter, ]
+      
+      # create time series
+      # get current outlier distance from expected value
+      # if still outlier - break!
+      # get past outlier time windows
+      # get both anomaly history values
+      
+      # get_tuple_string
+      values <- as.character(sapply(tuple[1,], as.character))
+      tuple_string <- paste(colnames(tuple), values, sep = " = ", 
+                            collapse = ", ")
+      
+      tuple_dt <- data.table(tuple = tuple_string
+                             ,distance = tuple_distance
+                             ,overall_anomalies = overall_anomalies 
+                             ,unique_anomalies = unique_anomalies)
+      
+      tuples_distances <- rbind(tuples_distances, tuple_dt)
+      
+      tuples_tables[[j]] <- list(tuple_string, tuple_distance_dt)
+      names(tuples_tables)[j] <- tuple_string
+      j <- j + 1
+    }
+  }
 }
-
-node_tuple <- list()
-for (i in 2:length(path))
-{
-  split <- path[i]
-  split_values <- strsplit(split, "=")
-  feature <- split_values[[1]][[1]]
-  values <- split_values[[1]][[2]]
-  node_tuple[[feature]] <- values
-}
-
-# create tuples from those vertices
-
-# get differences between the tuples and the non-tuple TS
-# get p-values for the anomaly time for each tuple
-# prepare a table with each tuple 
-# and its corresponding mean, variance and p-value
-
-# train a classifier (logistic?) on all the data
-
-# predict (probabilities) new instances using a pre-trained classifier
-# return top k tuples
