@@ -5,7 +5,7 @@ source(file = "Auxiliary-Functions.R")
 ## Install Packages
 packages <- c("data.table", "forecast", "zoo", "lubridate", "stringr", 
             "doParallel", "fasttime", "xts", "arules", "rpart", 
-              "partykit", "rpart.plot")
+              "partykit", "rpart.plot", "scatterplot3d")
 ipak(packages)
 
 source(file = "Modified-TSOutliers.R")
@@ -117,7 +117,7 @@ get_outlier_values_from_dt <- function (time_windows,
                                           outliers$index)) /
                                     length(full_outliers$index)
     distance <- outliers$index_distance
-    return(list(tuple_distance = distance
+    return(list(tuple_distance = abs(distance)
                 ,overall_anomalies = overall_anomalies
                 ,unique_anomalies = unique_anomalies))
   }
@@ -178,8 +178,14 @@ saveRDS(tuples_distances, "tuples_distances.rds")
 
 tuples_distances <- (readRDS("tuples_distances.rds"))
 plot(distance ~ unique_anomalies, data = tuples_distances)
+attach(tuples_distances)
+View(tuples_distances)
+
+scatterplot3d(distance, overall_anomalies, unique_anomalies)
+
 tuples_tables <- (readRDS("tuples_tables.rds"))
 original_ts <- get_ts_from_dt(dt, win_size)
+original_ts <- get_ts_from_dt(dt, win_size, type = "xts")
 plot(original_ts)
 indices <- outliers$index
 residuals <- outliers$residuals
@@ -190,7 +196,11 @@ clusters <- discretize(x = residuals
                        ,categories = 3
                        ,labels = c("green", "orange", "red")
 )
-# collapse identical tuples (province is very specific)
+
+tuples_distances
+
+# collapse identical tuples (e.g. province is very specific) - same values
+# sort list by 3 metrics
 # 
 
 #change reqduration to value
