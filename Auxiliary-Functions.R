@@ -5,6 +5,8 @@ ipak <- function(pkg){
   sapply(pkg, require, character.only = TRUE)
 }
 
+source(file = "Modified-TSOutliers.R")
+
 #################################
 ## Basic Functions on Data Tables
 #################################
@@ -145,7 +147,7 @@ convert_categories_to_clusters <- function (dt, columns, value)
 
 get_ts_from_dt <- function (dt, win_size, type = "ts")
 {
-  agg_dt <- dt[, .(Value = mean(ReqDuration)), 
+  agg_dt <- dt[, .(Value = mean(Value)), 
                by = time_window]
   windows_in_day <- (60 / win_size) * 24
   if (type == "ts")
@@ -155,4 +157,206 @@ get_ts_from_dt <- function (dt, win_size, type = "ts")
     x <- xts(agg_dt$Value, order.by = agg_dt$time_window)
   }
   x
+}
+
+get_dt_from_table <- function(path)
+{
+  ## Read Dataset
+  dt <- fread(input = path)
+  
+  ## Convert Timestamp String to Timestamp
+  dt[, TimeStamp := fastPOSIXct(TimeStamp, tz = "GMT")]
+  dt <- dt[order(TimeStamp)] ## Sort datatable according to TimeStamp
+  
+  dt
+}
+
+cluster_anomalies <- function (anomalies)
+{
+  indices <- anomalies$index
+  residuals <- anomalies$residuals
+
+  clusters <- discretize(x = residuals
+                         ,method = "cluster"
+                         ,ordered = TRUE
+                         ,categories = 3
+                         ,labels = c("green", "orange", "red"))
+}
+
+find_anomalies <- function(dt, win_size, iqr_factor)
+{
+  dt[, time_window := align.time(TimeStamp, win_size * 60)]
+  x <- get_ts_from_dt(dt, win_size)
+  
+  anomalies <- tsoutliers(x, iqr_factor = iqr_factor)
+  
+  clusters <- cluster_anomalies(anomalies)
+  
+  return(list(dt = dt
+              ,clusters = clusters
+              ,anomalies = anomalies
+  ))
+}
+
+## Insert k, features and get all the combinations possible
+get_k_combinations <- function(dt, features, k = 3)
+{
+  k_comb <- list()
+  for (m in 1:k)
+  {
+    comb <- combn(features, m)
+    combinations <- list()
+    for (i in 1:ncol(comb))
+    {
+      tuple <- comb[, i]
+      values <- list()
+      for (j in 1:m)
+      {
+        values[[j]] <- unique(dt[, get(tuple[j])])
+      }
+      combinations[[i]] <- as.data.table(expand.grid(values))
+      setnames(combinations[[i]], tuple)
+    }
+    k_comb[[m]] <- combinations
+  }
+  k_comb
+}
+
+get_tuple_string <- function(tuple)
+{
+  tuple_strings <- as.character(sapply(tuple[1,], as.character))
+  paste(colnames(tuple), tuple_strings, sep = " = ",
+        collapse = ", ")
+}
+
+get_outlier_values_from_dt <- function (time_windows,
+                                        filtered_dt,
+                                        full_anomalies,
+                                        iqr_factor = 3,
+                                        anomaly_index,
+                                        win_size)
+{
+  agg_dt <- filtered_dt[, .(Value = mean(Value)), by = time_window]
+  
+  ## make sure both DTs have same sizes
+  if (nrow(agg_dt) < length(time_windows))
+  {
+    agg_dt <- merge(time_windows
+                    ,agg_dt
+                    ,by = "time_window"
+                    ,all.x = TRUE)
+  }
+  
+  windows_in_day <- (60 / win_size) * 24
+  x <- ts(agg_dt$Value, frequency = windows_in_day)
+  
+  anomalies <- tsoutliers(x
+                          ,iqr_factor = iqr_factor
+                          ,index_for_inspection = anomaly_index)
+  
+  if (!anomaly_index %in% anomalies$index)
+  {
+    unique_anomalies <- length(setdiff(anomalies$index
+                                       ,full_anomalies$index))
+    overall_anomalies <- length(intersect(full_anomalies$index,
+                                          anomalies$index)) /
+      length(full_anomalies$index)
+    distance <- anomalies$index_distance
+    return(list(tuple_distance = abs(distance)
+                ,overall_anomalies = overall_anomalies
+                ,unique_anomalies = unique_anomalies))
+  }
+  return(NULL)
+}
+
+get_dt_from_tuple <- function(dt, tuple)
+{
+  indices_to_filter <- 1:nrow(dt)
+  for (col in colnames(tuple))
+  {
+    column_indices <- which(dt[, get(col)] == tuple[, get(col)])
+    indices_to_filter <- intersect(indices_to_filter, column_indices)
+  }
+  filtered_dt <- dt[!indices_to_filter, ]
+}
+
+get_tuples_dt <- function (dt, k_comb, anomalies, 
+                           time_windows, anomaly_index)
+{
+  #get original residual
+  original_distance <- anomalies$residuals[anomaly_num]
+  
+  tuples_dt <- data.table(tuple = "All"
+                                 ,distance = original_distance
+                                 ,overall_anomalies = 1.0 
+                                 ,unique_anomalies = 0.0)
+  i = 1
+  for (combinations in k_comb)
+  {
+    #combinations <- k_comb[[1]]
+    total <- sum(sapply(combinations, nrow))
+    print(paste("Processing Combinations of Size:", i))
+    flush.console()
+    pb <- txtProgressBar(min = 0, max = total, style = 3)
+    j = 0
+    for (combination in combinations)
+    {
+      for (k in 1:nrow(combination))
+      {
+        tuple <- combination[k]
+        filtered_dt <- get_dt_from_tuple(dt, tuple)
+        values <- get_outlier_values_from_dt(time_windows,
+                                             filtered_dt, 
+                                             anomalies, 
+                                             iqr_factor,
+                                             anomaly_index,
+                                             win_size)
+        
+        if (!is.null(values))
+        {
+          tuple_string <- get_tuple_string(tuple)
+          
+          tuple_dt <- data.table(tuple = tuple_string
+                                 ,distance = values$tuple_distance
+                                 ,overall_anomalies = values$overall_anomalies
+                                 ,unique_anomalies = values$unique_anomalies)
+          
+          tuples_dt <- rbind(tuples_dt, tuple_dt)
+          
+          # tuples_tables[[tuple_string]] <- list(tuple, tuple_dt)
+        }
+        j <- j + 1
+        setTxtProgressBar(pb, j)
+      }
+    }
+    close(pb)
+    i <- i + 1
+  }
+  tuples_dt
+}
+
+detect_leads_for_anomaly <- function(dt, win_size, iqr_factor, 
+                                     anomalies, clusters, 
+                                     anomaly_num, k = 3)
+{
+  time_windows <- unique(dt$time_window)
+  anomaly_index <- anomalies$index[anomaly_num]
+  anomaly_time <- time_windows[anomaly_index]
+  
+  categorical_columns <- setdiff(colnames(dt), 
+                                 c("TimeStamp", 
+                                   "Value", 
+                                   "time_window"))
+  
+  categorical_indices <- which(names(dt) %in% categorical_columns)
+  value_index <- which(names(dt) == "Value")
+  window_dt <- dt[time_window == anomaly_time, 
+                  c(categorical_indices, value_index), with = F]
+  
+  op_on_columns(window_dt, categorical_columns, function(x) {as.factor(x)})
+  
+  k_comb <- get_k_combinations(window_dt, categorical_columns, k)
+  
+  tuples_dt <- get_tuples_dt(dt, k_comb, anomalies, 
+                              time_windows, anomaly_index)
 }
