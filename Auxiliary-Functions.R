@@ -142,3 +142,12 @@ convert_categories_to_clusters <- function (dt, columns, value)
   }
   dt
 }
+
+get_ts_from_dt <- function (dt, win_size)
+{
+  agg_dt <- dt[, .(Value = mean(ReqDuration)), 
+               by = time_window]
+  windows_in_day <- (60 / win_size) * 24
+  x <- ts(agg_dt$Value, frequency = windows_in_day)  
+  x
+}

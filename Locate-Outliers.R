@@ -12,23 +12,22 @@ dt <- readRDS("dt.rds")
 
 ## Decide on Window Size (In Minutes)
 win_size = 5
+
+
+# trim_size <- 0.01
+# upper_limit <- quantile(dt$ReqDuration, 1-trim_size)
+# lower_limit <- quantile(dt$ReqDuration, trim_size)
+# trim_dt <- dt[ReqDuration < upper_limit & ReqDuration > lower_limit]
+# agg_trim_dt <- trim_dt[, .(Value = mean(ReqDuration)), 
+#                                       by = time_window]
+# 
+
+
+# plot(x)
+# x_clean <- ts(agg_trim_dt$Value, frequency = windows_in_day)
+# plot(x_clean)
 dt[, time_window := align.time(TimeStamp, win_size * 60)]
-
-agg_dt <- dt[, .(Value = mean(ReqDuration)), 
-                  by = time_window]
-
-trim_size <- 0.01
-upper_limit <- quantile(dt$ReqDuration, 1-trim_size)
-lower_limit <- quantile(dt$ReqDuration, trim_size)
-trim_dt <- dt[ReqDuration < upper_limit & ReqDuration > lower_limit]
-agg_trim_dt <- trim_dt[, .(Value = mean(ReqDuration)), 
-                                      by = time_window]
-
-windows_in_day <- (60 / win_size) * 24
-x <- ts(agg_dt$Value, frequency = windows_in_day)
-plot(x)
-x_clean <- ts(agg_trim_dt$Value, frequency = windows_in_day)
-plot(x_clean)
+x <- get_ts_from_dt(dt, win_size)
 # x_clean <- tsclean(x, replace.missing = TRUE)
 
 # outliers <- tsoutliers(x, iqr_factor = 1.5)

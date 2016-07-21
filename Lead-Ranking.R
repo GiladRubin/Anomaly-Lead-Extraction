@@ -3,8 +3,10 @@ rm(list = ls())
 source(file = "Auxiliary-Functions.R")
 
 ## Install Packages
-ipak(c("data.table", "forecast", "zoo", "lubridate", "stringr", 
-       "fasttime", "xts", "arules", "rpart", "partykit", "rpart.plot"))
+packages <- c("data.table", "forecast", "zoo", "lubridate", "stringr", 
+            "doParallel", "fasttime", "xts", "arules", "rpart", 
+              "partykit", "rpart.plot")
+ipak(packages)
 
 source(file = "Modified-TSOutliers.R")
 
@@ -51,7 +53,7 @@ value_count
 
 
 ## Insert k, features and get all the combinations possible
-k = 3
+k = 2
 k_comb <- list()
 for (m in 1:k)
 {
@@ -82,7 +84,6 @@ tuples_distances <- data.table(tuple = "All"
                                ,overall_anomalies = 1.0 
                                ,unique_anomalies = 0.0)
 
-
 get_outlier_values_from_dt <- function (time_windows,
                                         filtered_dt,
                                         full_outliers,
@@ -104,24 +105,34 @@ get_outlier_values_from_dt <- function (time_windows,
   windows_in_day <- (60 / win_size) * 24
   x <- ts(agg_dt$Value, frequency = windows_in_day)
   
-  outliers <- tsoutliers(x 
+  outliers <- tsoutliers(x
                          ,iqr_factor = iqr_factor
                          ,index_for_inspection = anomaly_index)
-  
+
   if (!anomaly_index %in% outliers$index)
   {
-    overall_anomalies <- length(setdiff(full_outliers$index, 
-                                        outliers$index)) / 
-                                          length(full_outliers$index)
     unique_anomalies <- length(setdiff(outliers$index
-                                       ,full_outliers$index)) /
-                                          length(outliers$index)
+                                       ,full_outliers$index))
+    overall_anomalies <- length(intersect(full_outliers$index,
+                                          outliers$index)) /
+                                    length(full_outliers$index)
     distance <- outliers$index_distance
     return(list(tuple_distance = distance
                 ,overall_anomalies = overall_anomalies
                 ,unique_anomalies = unique_anomalies))
   }
   return(NULL)
+}
+
+get_dt_from_tuple <- function(dt, tuple)
+{
+  indices_to_filter <- 1:nrow(dt)
+  for (col in colnames(tuple))
+  {
+    column_indices <- which(dt[, get(col)] == tuple[, get(col)])
+    indices_to_filter <- intersect(indices_to_filter, column_indices)
+  }
+  filtered_dt <- dt[!indices_to_filter, ]
 }
 
 tuples_tables <- list()
@@ -133,43 +144,105 @@ for (combinations in k_comb)
     {
       tuple <- combination[i]
       print(tuple)
-      indices_to_filter <- 1:nrow(dt)
-      for (col in colnames(tuple))
-      {
-        column_indices <- which(dt[, get(col)] == tuple[, get(col)])
-        indices_to_filter <- intersect(indices_to_filter, column_indices)
-      }
-      filtered_dt <- dt[!indices_to_filter, ]
+      filtered_dt <- get_dt_from_tuple(dt, tuple)
       values <- get_outlier_values_from_dt(time_windows,
                                            filtered_dt, 
                                            outliers, 
                                            iqr_factor,
                                            anomaly_index,
                                            win_size)
-      
-      # get_tuple_string
+      #get_tuple_string
       tuple_values <- as.character(sapply(tuple[1,], as.character))
       if (!is.null(values))
       {
         tuple_string <- paste(colnames(tuple), tuple_values, sep = " = ",
-                                                          collapse = ", ")
-
+                              collapse = ", ")
+        
         tuple_dt <- data.table(tuple = tuple_string
-                            ,distance = values$tuple_distance
-                            ,overall_anomalies = values$overall_anomalies
-                            ,unique_anomalies = values$unique_anomalies)
-
+                               ,distance = values$tuple_distance
+                               ,overall_anomalies = values$overall_anomalies
+                               ,unique_anomalies = values$unique_anomalies)
+        
         tuples_distances <- rbind(tuples_distances, tuple_dt)
-
-        tuples_tables[[j]] <- list(tuple_string, tuple_dt)
-        names(tuples_tables)[j] <- tuple_string
-        j <- j + 1
+        
+        tuples_tables[[tuple_string]] <- list(tuple, tuple_dt)
       }
     }
   }
 }
-tuples_tables[[tuples_distances$tuple[2]]]
 
+plot(distance ~ unique_anomalies, data = tuples_distances)
+
+saveRDS(tuples_tables, "tuples_tables.rds")
+saveRDS(tuples_distances, "tuples_distances.rds")
+
+tuples_distances <- (readRDS("tuples_distances.rds"))
+plot(distance ~ unique_anomalies, data = tuples_distances)
+tuples_tables <- (readRDS("tuples_tables.rds"))
+original_ts <- get_ts_from_dt(dt, win_size)
+plot(original_ts)
+indices <- outliers$index
+residuals <- outliers$residuals
+
+clusters <- discretize(x = residuals
+                       ,method = "cluster"
+                       ,ordered = TRUE
+                       ,categories = 3
+                       ,labels = c("green", "orange", "red")
+)
+# collapse identical tuples (province is very specific)
+# 
 
 #change reqduration to value
 #change outlier to anomaly
+
+# get_values_from_combination <- function(combination)
+# {
+#   for (i in 1:nrow(combination))
+#   {
+#     tuple <- combination[i]
+#     print(tuple)
+#     indices_to_filter <- 1:nrow(dt)
+#     for (col in colnames(tuple))
+#     {
+#       column_indices <- which(dt[, get(col)] == tuple[, get(col)])
+#       indices_to_filter <- intersect(indices_to_filter, column_indices)
+#     }
+#     filtered_dt <- dt[!indices_to_filter, ]
+#     values <- get_outlier_values_from_dt(time_windows,
+#                                          filtered_dt, 
+#                                          outliers, 
+#                                          iqr_factor,
+#                                          anomaly_index,
+#                                          win_size)
+#     
+#     #get_tuple_string
+#     tuple_values <- as.character(sapply(tuple[1,], as.character))
+#     if (!is.null(values))
+#     {
+#       tuple_string <- paste(colnames(tuple), tuple_values, sep = " = ",
+#                             collapse = ", ")
+#       
+#       tuple_dt <- data.table(tuple = tuple_string
+#                              ,distance = values$tuple_distance
+#                              ,overall_anomalies = values$overall_anomalies
+#                              ,unique_anomalies = values$unique_anomalies)
+#       
+#       tuples_distances <- rbind(tuples_distances, tuple_dt)
+#       
+#       tuples_tables[[tuple_string]] <- tuple_dt
+#     }
+#   }
+# }
+# 
+# cl <- makeCluster(detectCores())
+# registerDoParallel(cl)
+# 
+# foreach(combinations = k_comb, .packages=packages) %do%
+# {
+#   foreach(combination = combinations, .packages=packages) %do%
+#   {
+#     get_values_from_combination(combination)
+#   }
+# }
+# stopCluster(cl)
