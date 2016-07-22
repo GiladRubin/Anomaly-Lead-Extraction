@@ -2,10 +2,6 @@ rm(list = ls())
 
 source(file = "Auxiliary-Functions.R")
 
-## Install Packages
-ipak(c("data.table", "forecast", "zoo", "lubridate", "stringr", 
-                                    "fasttime", "xts", "utils"))
-
 #load dataset
 #table_name <- "clean_requests"
 table_name <- "synthetic_data"

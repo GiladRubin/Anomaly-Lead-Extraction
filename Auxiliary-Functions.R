@@ -7,7 +7,8 @@ ipak <- function(pkg){
   sapply(pkg, require, character.only = TRUE)
 }
 
-ipak(c("arules", "NbClust"))
+ipak(c("arules", "NbClust", "data.table", "forecast", "zoo", 
+       "lubridate", "stringr", "fasttime", "xts", "utils"))
 
 source(file = "Modified-TSOutliers.R")
 
