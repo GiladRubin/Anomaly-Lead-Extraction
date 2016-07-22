@@ -5,6 +5,8 @@ ipak <- function(pkg){
   sapply(pkg, require, character.only = TRUE)
 }
 
+ipak(c("arules", "NbClust", "fastcluster"))
+
 source(file = "Modified-TSOutliers.R")
 
 #################################
@@ -32,121 +34,9 @@ op_on_columns <- function (dt, columns, op)
   }
 }
 
-## Clustering
-split_max_cluster <- function (cluster_dt)
-{
-  category <- names(cluster_dt)[1]
-  y_per_cluster <- cluster_dt[, .(mean_y_per_cluster = mean(std_y)), by = cluster_index]
-  y_per_cluster <- y_per_cluster[order(mean_y_per_cluster, decreasing = T)]
-  max_cluster <- as.numeric(y_per_cluster[1, cluster_index])
-  cluster_indices <- which(as.numeric(cluster_dt$cluster_index) == max_cluster)
-  cluster_count <- as.numeric(table(cluster_dt$cluster_index)[max_cluster])
-  if (cluster_count > 1 & cluster_count < 10)
-  {
-    cluster_dt[cluster_indices, cluster_name := as.factor(get(category))]
-  }
-}
-
-rename_clusters <- function (cluster_dt)
-{
-  category <- names(cluster_dt)[1]
-  for (cluster in unique(cluster_dt$cluster_index))
-  {
-    current_cluster <- cluster_dt[cluster_index == cluster]
-    count_per_cluster <- nrow(current_cluster)
-    if (count_per_cluster > 1)
-    {
-      current_cluster <- current_cluster[order(std_y)]
-      median_index <- round(count_per_cluster / 2)
-      representitive <- current_cluster[median_index, get(category)]
-      current_cluster_name <- paste(as.character(representitive), "+", as.character(count_per_cluster))
-      cluster_dt[cluster_index == cluster, cluster_name := as.factor(current_cluster_name)]
-    } else {
-      cluster_dt[cluster_index == cluster, cluster_name := as.factor(get(category))]
-    }
-  }
-}
-
-#############################
-###Feature Grouping Functions
-#############################
-
-cluster_category <- function (dt, category, value)
-{
-  ## How many different values for this Category?
-  num_levels <- length(unique(dt[, get(category)])) 
-  
-  ## Get Proportion of each Value
-  prop_table <- as.data.table(prop.table(table(dt[, get(category)])))
-  setnames(prop_table, c(category, "proportion"))
-  
-  ## Get Mean Y value Of Each Value Group
-  cluster_dt <- dt[, .(mean_y = mean(get(value))), by = get(category)]
-  setnames(cluster_dt, 1, category)
-  
-  ## Merge the two data tables and Standartize the values
-  cluster_dt <- merge(cluster_dt, prop_table, by = category, all.x = T)
-  cluster_dt[, std_y := scale(mean_y, scale = T, center = F)]
-  cluster_dt[, std_proportion := scale(proportion, scale = T, center = F)]
-  
-  ## Cluster
-  nb <- NbClust(data = cluster_dt[, .(std_y, std_proportion)],
-                min.nc=2, max.nc=min(num_levels - 1, 15), method = "ward.D2", 
-                index = "hartigan")
-  
-  par(mfrow = c(1, 1)) ## Technical - Ignore this line
-  
-  ## Get the partition for every value into the suggested Cluster
-  partition <- nb$Best.partition
-  cluster_dt[, cluster_index := as.factor(partition)]
-  setnames(cluster_dt, 1, category)
-  
-  ## Assign Meaningful Names to Clusters
-  cluster_dt[, cluster_name := "default"] ## Default Value
-  ## Rename Clusters
-  rename_clusters(cluster_dt)
-  ## Split the cluster with the highest mean Y value into Independent Groups of size 1
-  ## This will help the decision Tree be more percise
-  split_max_cluster(cluster_dt)
-  
-  ## Plot the values and with their relevant Cluster
-  plot(data = cluster_dt, std_y ~ std_proportion, 
-       xlab = "Proportion In Dataset", ylab = "Mean Y Value",
-       col = colorize_vector(cluster_dt$cluster_name), 
-       pch = (as.numeric(cluster_dt$cluster_index) %% 15) + 15, 
-       main = paste("Clusters For Category:", category))
-  
-  ## Return
-  cluster_dt
-}
-
-plot_clusters <- function (cluster_dt)
-{
-  category <- names(cluster_dt)[1]
-  highchart() %>%
-    hc_title(text = paste(category, "Mean Y Value Vs. Proportion")) %>% 
-    hc_add_series_scatter(x = cluster_dt$std_proportion, y = cluster_dt$std_y
-                          ,label = cluster_dt[, get(category)], 
-                          color = colorize_vector(cluster_dt$cluster_name)) %>%
-    hc_yAxis(title = list(text = "Mean Y Value")) %>%
-    hc_xAxis(title = list(text = "Proportion In Dataset"))
-}
-
-convert_categories_to_clusters <- function (dt, columns, value)
-{
-  for (col in columns)
-  {
-    current_cluster <- cluster_category(dt = dt, category = col, value = value)
-    current_cluster <- current_cluster[, .(get(col), cluster_name)]
-    new_column_name <- paste(col, "Group", sep = "_")
-    setnames(current_cluster, c(col, new_column_name))
-    dt <- merge(dt, current_cluster, by = col, all.x = T)
-  }
-  dt
-}
-
 get_ts_from_dt <- function (dt, win_size, type = "ts")
 {
+  dt[, time_window := align.time(TimeStamp, win_size * 60)]
   agg_dt <- dt[, .(Value = mean(Value)), 
                by = time_window]
   windows_in_day <- (60 / win_size) * 24
@@ -159,8 +49,9 @@ get_ts_from_dt <- function (dt, win_size, type = "ts")
   x
 }
 
-get_dt_from_table <- function(path)
+get_dt_from_table <- function(table_name)
 {
+  path <- paste("./", table_name, "/", table_name, ".csv", sep = "")
   ## Read Dataset
   dt <- fread(input = path)
   
@@ -170,6 +61,27 @@ get_dt_from_table <- function(path)
   
   dt
 }
+
+save_rds <- function(table_name, object, date = NULL)
+{
+  object_name <- deparse(substitute(object))
+  folder <- paste(".", table_name, date, sep = "/")
+  if (!dir.exists(folder))
+    dir.create(folder, recursive = TRUE)
+  filename <- paste(object_name, ".rds", sep ="")
+  saveRDS(object, paste(folder, filename, sep = "/"))
+}
+
+read_rds <- function(table_name, object_name, date = NULL)
+{
+  folder <- paste(".", table_name, date, sep = "/")
+  filename <- paste(object_name, ".rds", sep ="")
+  readRDS(paste(folder, filename, sep = "/"))
+}
+
+###########################
+## Lead Detection Functions
+###########################
 
 cluster_anomalies <- function (anomalies)
 {
@@ -183,12 +95,12 @@ cluster_anomalies <- function (anomalies)
                          ,labels = c("green", "orange", "red"))
 }
 
-find_anomalies <- function(dt, win_size, iqr_factor)
+find_anomalies <- function(dt, win_size, iqr_factor, iterations = 2)
 {
   dt[, time_window := align.time(TimeStamp, win_size * 60)]
   x <- get_ts_from_dt(dt, win_size)
   
-  anomalies <- tsoutliers(x, iqr_factor = iqr_factor)
+  anomalies <- tsoutliers(x, iqr_factor = iqr_factor, iterate = iterations)
   
   clusters <- cluster_anomalies(anomalies)
   
@@ -335,6 +247,50 @@ get_tuples_dt <- function (dt, k_comb, anomalies,
   tuples_dt
 }
 
+compress_tuples_dt <- function (tuples_dt)
+{
+  tuples_dt <- tuples_dt[order(distance, unique_anomalies, 
+                               overall_anomalies, str_length(tuple))]
+  tuples_dt[, serial_num := sequence(.N), by = .(distance, unique_anomalies, 
+                                                          overall_anomalies)]
+  tuples_dt <- tuples_dt[serial_num == 1]
+  tuples_dt[, serial_num := NULL]
+  tuples_dt
+}
+
+cluster_tuples <- function(tuples_dt)
+{
+  tuples_dt[, unique_anomalies_norm := scale(unique_anomalies, center = FALSE)]
+  tuples_dt[, distance_norm := scale(distance, center = FALSE)]
+  clust_dt <- tuples_dt[, .(distance_norm, unique_anomalies_norm)]
+  nitems <- nrow(tuples_dt)
+  
+  ## Cluster
+  if (nitems == 1)
+  {
+    tuples_dt[, cluster := 1]
+  } else if (nitems < 15) {
+    clusters <- kmeans(x = clust_dt, centers = min(nitems - 1, 5)
+                       ,iter.max = 30)
+    tuples_dt[, cluster := clusters$cluster]
+  } else {
+    nb <- NbClust(data = clust_dt,
+                  min.nc=min(nitems - 1, 5), 
+                  method = "ward.D2",
+                  index = "hartigan")
+    tuples_dt[, cluster := nb$Best.partition] 
+  }
+  #plot(distance_norm ~ unique_anomalies_norm, 
+  #              data = tuples_dt, col = cluster)
+  tuples_dt[, cluster_value := 
+              mean(unique_anomalies_norm) + mean(distance_norm)
+            , by = cluster]
+  tuples_dt <- tuples_dt[order(cluster_value, overall_anomalies)]
+  tuples_dt[, distance_norm := NULL]
+  tuples_dt[, unique_anomalies_norm := NULL]
+  tuples_dt
+}
+
 detect_leads_for_anomaly <- function(dt, win_size, iqr_factor, 
                                      anomalies, clusters, 
                                      anomaly_num, k = 3)
@@ -359,4 +315,7 @@ detect_leads_for_anomaly <- function(dt, win_size, iqr_factor,
   
   tuples_dt <- get_tuples_dt(dt, k_comb, anomalies, 
                               time_windows, anomaly_index)
+  tuples_dt <- compress_tuples_dt(tuples_dt)
+  tuples_dt <- cluster_tuples(tuples_dt)
+  tuples_dt
 }
