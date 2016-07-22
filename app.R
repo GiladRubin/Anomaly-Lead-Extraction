@@ -4,7 +4,7 @@ source(file = "Auxiliary-Functions.R")
 ipak(c("shiny", "shinythemes", "dygraphs", "zoom", "ggplot2", "zoo"))
 Sys.setenv(TZ = "GMT")
 table_name <- "clean_requests" #input
-table_name <- input$date
+#table_name <- input$date
 dt <- read_rds(table_name, "dt")
 anomalies <- read_rds(table_name, "anomalies")
 clusters <- read_rds(table_name, "clusters")
