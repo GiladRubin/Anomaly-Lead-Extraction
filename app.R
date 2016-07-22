@@ -8,6 +8,7 @@ table_name <- "clean_requests" #input
 dt <- read_rds(table_name, "dt")
 anomalies <- read_rds(table_name, "anomalies")
 clusters <- read_rds(table_name, "clusters")
+date <- as.Date(min(dt$TimeStamp))
 tuples_dt <- read_rds(table_name, "tuples_dt", date)
 time_windows <- unique(dt$time_window)
 anomaly_times <- data.table(time_window = time_windows[anomalies$index])
@@ -15,8 +16,6 @@ anomaly_times[, anomaly_num := sequence(.N), by = as.Date(time_window)]
 ts <- get_ts_from_dt(dt, win_size = 5, type = "xts")
 ts_dt <- as.data.table(time(ts))
 setnames(ts_dt, c("time_window"))
-
-date <- as.Date(max(dt$TimeStamp))
 # 
 # test <- dygraph(ts)
 # test$x$events
