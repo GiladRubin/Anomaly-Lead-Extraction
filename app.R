@@ -16,10 +16,6 @@ anomaly_times[, anomaly_num := sequence(.N), by = as.Date(time_window)]
 ts <- get_ts_from_dt(dt, win_size = 5, type = "xts")
 ts_dt <- as.data.table(time(ts))
 setnames(ts_dt, c("time_window"))
-# 
-# test <- dygraph(ts)
-# test$x$events
-# test$x$annotations
 
 ui <- shinyUI(fluidPage(theme = shinytheme("cerulean"),
     tags$head(
@@ -31,15 +27,17 @@ ui <- shinyUI(fluidPage(theme = shinytheme("cerulean"),
       h1("Anomaly Lead Detector", align = "center", style = "font-family: 'Lobster'")
     ),
     fluidRow(
-      column(6,
-        dateInput('date',
-                  label = 'Date input: yyyy-mm-dd',
-                  value = as.Date(max(dt$TimeStamp))
-        )
-      ), column(6,
-          selectInput("select", label = h3("Select box"), 
-          choices = list("Choice 1" = 1, "Choice 2" = 2, "Choice 3" = 3), 
-          selected = 1))
+      # column(6,
+      #   dateInput('date',
+      #             label = 'Date input: yyyy-mm-dd',
+      #             value = as.Date(min(dt$TimeStamp))
+      #   )
+      # ), 
+      # column(6,
+      selectInput("select", label = h3("Select box"), 
+      choices = list("Requests" = "clean_requests", 
+                     "Synthetic Dataset" = "synthetic_data"), 
+      selected = 1)
     ),
     fluidRow(
       column(8, 

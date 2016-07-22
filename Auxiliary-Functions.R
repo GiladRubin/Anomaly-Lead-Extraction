@@ -121,17 +121,6 @@ find_anomalies <- function(dt, win_size, iqr_factor, iterations = 2)
   dt[, time_window := align.time(TimeStamp, win_size * 60)]
   x <- get_ts_from_dt(dt, win_size)
   anomalies <- tsoutliers(x, iqr_factor = iqr_factor, iterate = iterations)
-  # anomalies <- tsoutliers(x, iqr_factor = iqr_factor, iterate = iterations)
-  # windows_in_day <- (60 / win_size) * 24
-  # x_clean <- tsclean(x)
-  # seas1 <- fourier(x_clean, K=4)
-  # seas2 <- fourier(ts(x_clean, freq=windows_in_day * 7), K=4)
-  # arima_fit <- auto.arima(x_clean
-  #                        ,xreg=cbind(seas1,seas2)
-  #                          ,seasonal = FALSE)
-  # anomalies <- tsoutliers(x = x
-  #                       ,iqr_factor = 10
-  #                       ,fitted_values = fitted(arima_fit))
   
   clusters <- cluster_anomalies(anomalies)
   
@@ -331,7 +320,8 @@ cluster_tuples <- function(tuples_dt)
     tuples_dt[, cluster := clusters$cluster]
   } else {
     nb <- NbClust(data = clust_dt,
-                  min.nc=min(nitems - 1, 5), 
+                  min.nc=min(nitems - 1, 5),
+                  max.nc = nitems - 1,
                   method = "ward.D2",
                   index = "hartigan")
     tuples_dt[, cluster := nb$Best.partition] 
@@ -370,9 +360,10 @@ detect_leads_for_anomaly <- function(dt, win_size, iqr_factor,
   
   k_comb <- get_k_combinations(window_dt, categorical_columns, k)
   
-  tuples_dt <- get_tuples_dt(dt, k_comb, anomalies, 
-                              time_windows, anomaly_num, 
+  tuples_dt <- get_tuples_dt(dt, k_comb, anomalies,
+                              time_windows, anomaly_num,
                                 iterations = iterations)
+  
   tuples_dt <- compress_tuples_dt(tuples_dt)
   tuples_dt <- cluster_tuples(tuples_dt)
   tuples_dt
