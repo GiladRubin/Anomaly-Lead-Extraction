@@ -1,3 +1,5 @@
+## installs packages that are not installed on the machine 
+## and loads packagse that are already installed
 ipak <- function(pkg){
   new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
   if (length(new.pkg)) 
@@ -5,7 +7,7 @@ ipak <- function(pkg){
   sapply(pkg, require, character.only = TRUE)
 }
 
-ipak(c("arules", "NbClust", "fastcluster"))
+ipak(c("arules", "NbClust"))
 
 source(file = "Modified-TSOutliers.R")
 
@@ -23,6 +25,7 @@ replace_empty_values_with_na <- function (dt, columns)
   }
 }
 
+## apply generic function on specified columns
 op_on_columns <- function (dt, columns, op)
 {
   if (is.character(columns)) {
@@ -34,6 +37,8 @@ op_on_columns <- function (dt, columns, op)
   }
 }
 
+## return Time Series Object from data table
+## Aggregated by window size (win_size)
 get_ts_from_dt <- function (dt, win_size, type = "ts")
 {
   dt[, time_window := align.time(TimeStamp, win_size * 60)]
@@ -49,6 +54,7 @@ get_ts_from_dt <- function (dt, win_size, type = "ts")
   x
 }
 
+## Read csv from table name folder and return and data table 
 get_dt_from_table <- function(table_name)
 {
   path <- paste("./", table_name, "/", table_name, ".csv", sep = "")
@@ -62,6 +68,7 @@ get_dt_from_table <- function(table_name)
   dt
 }
 
+## Save RDS file for fast loading in following iterations
 save_rds <- function(table_name, object, date = NULL)
 {
   object_name <- deparse(substitute(object))
@@ -72,6 +79,7 @@ save_rds <- function(table_name, object, date = NULL)
   saveRDS(object, paste(folder, filename, sep = "/"))
 }
 
+## Read RDS
 read_rds <- function(table_name, object_name, date = NULL)
 {
   folder <- paste(".", table_name, date, sep = "/")
@@ -83,6 +91,8 @@ read_rds <- function(table_name, object_name, date = NULL)
 ## Lead Detection Functions
 ###########################
 
+## input: anomalies with their residuals
+## output: 3 clusters of the anomalies by their corresponding residuals
 cluster_anomalies <- function (anomalies)
 {
   indices <- anomalies$index
@@ -91,16 +101,35 @@ cluster_anomalies <- function (anomalies)
   clusters <- discretize(x = residuals
                          ,method = "cluster"
                          ,ordered = TRUE
-                         ,categories = 3
+                         ,categories = ifelse(length(indices) < 6, 1, 3)
                          ,labels = c("green", "orange", "red"))
 }
 
+
+## input: data table, window size, iqr_factor and number of iterations
+## the algorithm performs an anomaly detection procedure 
+## using STL decomposition 
+## output: indices of anomalies, their residuals and their cluster
+
+## tsoutliers is a modified version of the function tsoutliers found in
+## the "forecast" package in R by Rob Hyndman:
+## https://cran.r-project.org/web/packages/forecast/forecast.pdf
 find_anomalies <- function(dt, win_size, iqr_factor, iterations = 2)
 {
   dt[, time_window := align.time(TimeStamp, win_size * 60)]
   x <- get_ts_from_dt(dt, win_size)
-  
   anomalies <- tsoutliers(x, iqr_factor = iqr_factor, iterate = iterations)
+  # anomalies <- tsoutliers(x, iqr_factor = iqr_factor, iterate = iterations)
+  # windows_in_day <- (60 / win_size) * 24
+  # x_clean <- tsclean(x)
+  # seas1 <- fourier(x_clean, K=4)
+  # seas2 <- fourier(ts(x_clean, freq=windows_in_day * 7), K=4)
+  # arima_fit <- auto.arima(x_clean
+  #                        ,xreg=cbind(seas1,seas2)
+  #                          ,seasonal = FALSE)
+  # anomalies <- tsoutliers(x = x
+  #                       ,iqr_factor = 10
+  #                       ,fitted_values = fitted(arima_fit))
   
   clusters <- cluster_anomalies(anomalies)
   
@@ -110,7 +139,8 @@ find_anomalies <- function(dt, win_size, iqr_factor, iterations = 2)
   ))
 }
 
-## Insert k, features and get all the combinations possible
+## Input: an integer k, vector of features (strings) 
+## Output: All possible combinations of 3 features
 get_k_combinations <- function(dt, features, k = 3)
 {
   k_comb <- list()
@@ -134,6 +164,8 @@ get_k_combinations <- function(dt, features, k = 3)
   k_comb
 }
 
+## auxiliary function to get the tuple string by a data table
+## representing the tuple
 get_tuple_string <- function(tuple)
 {
   tuple_strings <- as.character(sapply(tuple[1,], as.character))
@@ -141,13 +173,17 @@ get_tuple_string <- function(tuple)
         collapse = ", ")
 }
 
+## detecting anomalies for the different tuples
+## each filtered_dt is the original data table without the events of the tuple
+## the function returns the anomalies detected in this data table
 get_outlier_values_from_dt <- function (time_windows,
                                         filtered_dt,
                                         full_anomalies,
-                                        iqr_factor = 3,
-                                        anomaly_index,
+                                        iqr_factor,
+                                        anomaly_num,
                                         win_size)
 {
+  anomaly_index <- full_anomalies$index[anomaly_num]
   agg_dt <- filtered_dt[, .(Value = mean(Value)), by = time_window]
   
   ## make sure both DTs have same sizes
@@ -175,12 +211,13 @@ get_outlier_values_from_dt <- function (time_windows,
       length(full_anomalies$index)
     distance <- anomalies$index_distance
     return(list(tuple_distance = abs(distance)
-                ,overall_anomalies = overall_anomalies
+              ,overall_anomalies = overall_anomalies
                 ,unique_anomalies = unique_anomalies))
   }
   return(NULL)
 }
 
+## get a filtered data table by a specified tuple
 get_dt_from_tuple <- function(dt, tuple)
 {
   indices_to_filter <- 1:nrow(dt)
@@ -192,8 +229,11 @@ get_dt_from_tuple <- function(dt, tuple)
   filtered_dt <- dt[!indices_to_filter, ]
 }
 
+## Main function that generates for a given anomaly the ranking of each
+## of the tuples that within the filtered data table do not have 
+## an anomaly at the specified anomaly time
 get_tuples_dt <- function (dt, k_comb, anomalies, 
-                           time_windows, anomaly_index)
+                           time_windows, anomaly_num)
 {
   #get original residual
   original_distance <- anomalies$residuals[anomaly_num]
@@ -205,7 +245,6 @@ get_tuples_dt <- function (dt, k_comb, anomalies,
   i = 1
   for (combinations in k_comb)
   {
-    #combinations <- k_comb[[1]]
     total <- sum(sapply(combinations, nrow))
     print(paste("Processing Combinations of Size:", i))
     flush.console()
@@ -221,7 +260,7 @@ get_tuples_dt <- function (dt, k_comb, anomalies,
                                              filtered_dt, 
                                              anomalies, 
                                              iqr_factor,
-                                             anomaly_index,
+                                             anomaly_num,
                                              win_size)
         
         if (!is.null(values))
@@ -234,8 +273,6 @@ get_tuples_dt <- function (dt, k_comb, anomalies,
                                  ,unique_anomalies = values$unique_anomalies)
           
           tuples_dt <- rbind(tuples_dt, tuple_dt)
-          
-          # tuples_tables[[tuple_string]] <- list(tuple, tuple_dt)
         }
         j <- j + 1
         setTxtProgressBar(pb, j)
@@ -247,6 +284,9 @@ get_tuples_dt <- function (dt, k_comb, anomalies,
   tuples_dt
 }
 
+## Compress tuples such as:
+## (Province = "Tel Aviv") & (Province = "Tel Aviv", Country = "Israel"))
+## into (Province = "Tel Aviv"). Country/Continent is less specific 
 compress_tuples_dt <- function (tuples_dt)
 {
   tuples_dt <- tuples_dt[order(distance, unique_anomalies, 
@@ -258,6 +298,9 @@ compress_tuples_dt <- function (tuples_dt)
   tuples_dt
 }
 
+## Cluster tuples' ranking according to their new distance from the 
+## expected value and the number of anomalies they have which do not
+## appear in the full dataset
 cluster_tuples <- function(tuples_dt)
 {
   tuples_dt[, unique_anomalies_norm := scale(unique_anomalies, center = FALSE)]
@@ -270,18 +313,17 @@ cluster_tuples <- function(tuples_dt)
   {
     tuples_dt[, cluster := 1]
   } else if (nitems < 15) {
-    clusters <- kmeans(x = clust_dt, centers = min(nitems - 1, 5)
+    clusters <- kmeans(x = clust_dt, centers = min(nitems, 5)
                        ,iter.max = 30)
     tuples_dt[, cluster := clusters$cluster]
   } else {
     nb <- NbClust(data = clust_dt,
-                  min.nc=min(nitems - 1, 5), 
+                  min.nc=min(nitems, 5), 
                   method = "ward.D2",
                   index = "hartigan")
     tuples_dt[, cluster := nb$Best.partition] 
   }
-  #plot(distance_norm ~ unique_anomalies_norm, 
-  #              data = tuples_dt, col = cluster)
+
   tuples_dt[, cluster_value := 
               mean(unique_anomalies_norm) + mean(distance_norm)
             , by = cluster]
@@ -291,6 +333,8 @@ cluster_tuples <- function(tuples_dt)
   tuples_dt
 }
 
+## This function runs the whole process from start to bottom
+## outputting the final compressed and clustered tuples data table
 detect_leads_for_anomaly <- function(dt, win_size, iqr_factor, 
                                      anomalies, clusters, 
                                      anomaly_num, k = 3)
@@ -314,7 +358,7 @@ detect_leads_for_anomaly <- function(dt, win_size, iqr_factor,
   k_comb <- get_k_combinations(window_dt, categorical_columns, k)
   
   tuples_dt <- get_tuples_dt(dt, k_comb, anomalies, 
-                              time_windows, anomaly_index)
+                              time_windows, anomaly_num)
   tuples_dt <- compress_tuples_dt(tuples_dt)
   tuples_dt <- cluster_tuples(tuples_dt)
   tuples_dt

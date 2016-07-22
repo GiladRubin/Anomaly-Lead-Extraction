@@ -98,7 +98,7 @@ stl_resid <- function(x)
 }
 
 # Function to identify time series outlieres
-tsoutliers <- function(x, iterate=2, 
+tsoutliers <- function(x, iterate=1, 
                        lambda=NULL, 
                        iqr_factor = 3,
                        fitted_values = NULL,

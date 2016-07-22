@@ -1,11 +1,11 @@
-## Install/Load Packages
 rm(list = ls())
+## Install/Load Packages
 source(file = "Auxiliary-Functions.R")
 ipak(c("shiny", "shinythemes", "dygraphs", "zoom", "ggplot2", "zoo"))
 Sys.setenv(TZ = "GMT")
 table_name <- "clean_requests" #input
+table_name <- input$date
 dt <- read_rds(table_name, "dt")
-date <- as.Date(max(dt$TimeStamp))
 anomalies <- read_rds(table_name, "anomalies")
 clusters <- read_rds(table_name, "clusters")
 tuples_dt <- read_rds(table_name, "tuples_dt", date)
@@ -16,6 +16,7 @@ ts <- get_ts_from_dt(dt, win_size = 5, type = "xts")
 ts_dt <- as.data.table(time(ts))
 setnames(ts_dt, c("time_window"))
 
+date <- as.Date(max(dt$TimeStamp))
 # 
 # test <- dygraph(ts)
 # test$x$events
