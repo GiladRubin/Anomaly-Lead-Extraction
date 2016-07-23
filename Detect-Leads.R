@@ -1,17 +1,13 @@
-tuples_dt <- read_rds("synthetic_data", "all_tuples")
-anomalies <- read_rds(table_name, "anomalies")
-clusters <- read_rds(table_name, "clusters")
-
 rm(list = ls())
 
 source(file = "Auxiliary-Functions.R")
 
 #load dataset
-#table_name <- "clean_requests"
-table_name <- "synthetic_data"
+table_name <- "clean_requests"
+#table_name <- "synthetic_data"
 
-#dt <- get_dt_from_table(table_name)
-dt <- read_rds(table_name, "dt")
+dt <- get_dt_from_table(table_name)
+#dt <- read_rds(table_name, "dt")
 
 #choose date
 dates <- unique(as.Date(dt$TimeStamp))
