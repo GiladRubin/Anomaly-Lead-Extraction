@@ -115,13 +115,20 @@ Based on our data exploration process, we have discovered that many anomalies
 \end_inset
 
 
-\begin_inset Newline newline
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename role.png
+
 \end_inset
 
- 
-\begin_inset Graphics
-	filename role inst.png
-	scale 70
+
+\end_layout
 
 \end_inset
 
@@ -169,10 +176,22 @@ The workflow of our model is depicted below:
 \end_inset
 
 
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
 \begin_inset Graphics
-	filename diagram.png
+	filename flow.png
 	lyxscale 50
 	scale 50
+
+\end_inset
+
+
+\end_layout
 
 \end_inset
 
@@ -181,8 +200,7 @@ The workflow of our model is depicted below:
 \end_inset
 
 In order to analyze a given dataset, each record in it must contain a Timestamp,
- a KPI attribute (numeric value) and categorical attributes related to that
- event.
+ a KPI attribute (numeric value) and categorical attributes 
 \end_layout
 
 \begin_layout Subsection
@@ -219,6 +237,7 @@ Following the anomaly detection procedure, we treat each anomaly seperately
 
 \begin_inset Graphics
 	filename demonstrate for workshop.emf
+	lyxscale 20
 	scale 10
 
 \end_inset
@@ -522,7 +541,7 @@ Plot of the Requests time series, aggregated by a 5-min time window with
 \end_layout
 
 \begin_layout Section
-Anomaly characterization
+Lead Detection
 \end_layout
 
 \begin_layout Subsection
@@ -594,6 +613,36 @@ For this reason, we have decided to test a different method, which relies
  on the finding anomalies based on the change in distance between subsets
  of the populations compared to the whole population, described in the following
  paragraph.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename Tree.png
+	lyxscale 70
+	scale 70
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+Example of a Regression Tree derived from anomalies in Requests data.
+ Actual values for splits are abbreviated for aesthetic reasons.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsubsection
@@ -627,6 +676,36 @@ Combining the two complementary methods described above into one general
  available for sparse tuples which may be very anomolous and, for our case,
  informative.
  
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename C:/R Workspace/Anomaly-Lead-Extraction/Distances.png
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+An example of a time series of distances between a subset of data and the
+ complementary time series.
+ Notice the anomaly at the points 87 and 88 which show an anomaly with regards
+ to the previous distribution of distances
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsubsection
@@ -677,11 +756,11 @@ New Distance
 
 
 \series default
- measure - at the anomaly point, what is the absolute distance in standard
- deviations between the expected value generated in the anomaly detection
- algorithm and the actual value of the time series at that point.
- The lower the score, the stronger indication that this tuple caused the
- anomaly.
+ - what is the absolute distance in standard deviations at the anomaly time
+ window between the expected value generated in the anomaly detection algorithm
+ and the actual value of the time series.
+ The lower the score, the stronger the indication that this tuple is an
+ informative lead.
 \begin_inset Newline newline
 \end_inset
 
@@ -726,9 +805,45 @@ Overall Anomalies
 \begin_inset Newline newline
 \end_inset
 
-After having the scores for all the tuples that show no anomaly at the specified
- time, we cluster them according to both metrics (after standartization):
- 
+
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename Tuples-Scores.png
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+A snippet of the data table generated from the Multiple Time-Series anomaly
+ detection process on the 
+\begin_inset Quotes eld
+\end_inset
+
+Requests
+\begin_inset Quotes erd
+\end_inset
+
+ data
+\end_layout
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+After obtaining the scores for all the tuples that show no anomaly at the
+ specified time, we cluster them using Ward's method according to both metrics,
+ after standartization: 
 \begin_inset Quotes eld
 \end_inset
 
@@ -745,20 +860,20 @@ Unique Anomalies
 \end_inset
 
 .
- After some experiments we concluded that combining these two features as
- the main ranking scheme will provide a good estimate of the effect each
- tuple had on the anomaly.
+ After our experiments we concluded that combining these two features as
+ the main ranking scheme provides a good estimate of the effect each tuple
+ had on the anomaly.
 \begin_inset Newline newline
 \end_inset
 
-We sort the clusters by their proximity to the origin (0,0), beacuse the
- lower both scores are the greater the probability for the tuple to be a
- good lead for the anomaly.
+At the next step, we sort the clusters by their proximity to the origin
+ (0,0), beacuse the lower both scores are the greater the probability for
+ the tuple to be a good lead for the anomaly.
  
 \begin_inset Newline newline
 \end_inset
 
-Finally, we present to the end user a list which consist of all that tuples,
+Finally, we present to the end user a list which consist of all tuples,
  ordered by the cluster distance from the origin and with a secondary sorting
  using the third score: 
 \begin_inset Quotes eld
@@ -769,14 +884,297 @@ Overall Anomalies
 \end_inset
 
 .
-\begin_inset Newline newline
+\end_layout
+
+\begin_layout Section
+Synthetic Data Set
+\end_layout
+
+\begin_layout Standard
+In order to estimate our performance and validate our assumptions, we decided
+ to synthesize a labeled dataset which preserves our original 
+\begin_inset Quotes eld
 \end_inset
 
-parallelize
+Requests
+\begin_inset Quotes erd
+\end_inset
+
+ dataset properties in terms of seasonality, trend, overall values and deviation
+s inside hourly time-windows.
+ 
 \end_layout
 
 \begin_layout Subsection
-Score subsets
+Creating the base of the data set
+\end_layout
+
+\begin_layout Standard
+In our attempt to preserve the main properties of our data, we first trimmed
+ the events with request duration value greater than 
+\begin_inset Formula $\pm$
+\end_inset
+
+3 standard deviations from the mean.
+ This gave us a cleaner version of the original dataset, without extreme
+ outliers.
+ 
+\begin_inset Newline newline
+\end_inset
+
+In order to emulate the seasonality and trend, we calculated the average
+ request duration per day and per hour.
+ Furthermore, we calculated the ratio of the average request duration of
+ an hour and average request duration of a day, assuming that this ratio
+ is similiar for each hour and day (based on the seasonality we have seen
+ in our data).
+ 
+\begin_inset Newline newline
+\end_inset
+
+For each hour we created approximately 4000 random time stamps, which is
+ derived from the number of events per hour on average, then attached to
+ it request duration values that were generated from normal distribution
+ with proper mean and standard deviation for this hour.
+ We added to this data frame another 4 columns which represents our attributes.
+ Each coulmn values were generated from different discrete distributions.
+ The choice of discrete distributions is owing to the fact that our original
+ features are categorical.
+ 1 attribute was chosen from discrete uniform distribution, 2 attributes
+ from (different) binomial distributions and another attribute from poisson
+ distribution.
+ 
+\end_layout
+
+\begin_layout Subsection
+Inserting anomalies
+\end_layout
+
+\begin_layout Standard
+At this point we want to inject artificial anomalies in random time stamps,
+ and randomly choose how many features and which features to be the cause
+ of the anomaly.
+ In addition, we generated randomly a value which is the strength of the
+ anomaly.
+ That way, we will have different kind of anomalies (global and seasonal).
+ For each event in the anomaly time range that contains the 
+\begin_inset Quotes eld
+\end_inset
+
+problematic
+\begin_inset Quotes erd
+\end_inset
+
+ features, we increase the request duration - add to its value the multiplicatio
+n of the strengh of the anomaly with the standard deviation that was calculated
+ the previous stage.
+ We recored the properties of each anomaly so we can measure our result
+ on the synthetic data.
+ Eventually we exported our synthetic data frame to csv file.
+ Illustration of the synthetic data with anomalies:
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename synthetic.png
+	lyxscale 70
+	scale 70
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+A plot of the synthetic time series
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename Labled Anomalies.png
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+A Snippet of labeled anomalies in the synthetic dataset
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Testing
+\end_layout
+
+\begin_layout Standard
+The synthetic dataset contains two accompanying datasets: 1.
+ Anomaly timestamp and 2.
+ Tuples of features that generated each anomaly
+\end_layout
+
+\begin_layout Subsection
+Anomaly detection accuracy
+\end_layout
+
+\begin_layout Standard
+We measured the accuracy of the anomaly detection process using F-score.
+ It considers both the precision and the recall and can be interpreted as
+ the harmonic mean of this two scores.
+ F-score reaches its best value at 1 and worst at 0.
+ 
+\begin_inset Newline newline
+\end_inset
+
+To explain our calculation we first define the following parameters:
+\begin_inset Newline newline
+\end_inset
+
+TP (true positive) = #anomalies correctly labeled as anomalies 
+\begin_inset Newline newline
+\end_inset
+
+FP (false positive) = #anomalies incorrectly labled as anomalies 
+\begin_inset Newline newline
+\end_inset
+
+FN (false negative) = #anomalies that were not labeled as anomalies
+\begin_inset Newline newline
+\end_inset
+
+Precision = 
+\begin_inset Formula $\frac{tp}{tp+fp}$
+\end_inset
+
+ , meaning, from all the anomalies our model detected what is the percentage
+ we were right
+\begin_inset Newline newline
+\end_inset
+
+Recall = 
+\begin_inset Formula $\frac{tp}{tp+fn}$
+\end_inset
+
+ , meaning from all the anomalies actuall exist in the data what is the
+ prcentage that we detected
+\begin_inset Newline newline
+\end_inset
+
+F-score = 
+\begin_inset Formula $2*\frac{precision*recall}{precision+recall}$
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+We were able to achive an impressive f-score of 
+\series bold
+0.98
+\series default
+ on our synthetic dataset with 0.22 ms processing time on 700K records dataset.
+ The optimal parameteres were: 
+\series bold
+Window size = 8
+\series default
+, 
+\series bold
+IQR factor = 4
+\series default
+, 
+\series bold
+Iterations = 2
+\series default
+.
+ The last two parameters are inputs to our anomaly detection procedure.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Formula $Plot$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Lead Detection Accuracy
+\end_layout
+
+\begin_layout Standard
+In order to validate our assumptions on detection of informative leads in
+ a time series, we chose to depict our accuracy as a function of the number
+ of results (k) presented to the end-user.
+ 
+\begin_inset Newline newline
+\end_inset
+
+The accuracy measured in this step is the precentage of correct tuples found
+ in the top ranked k tuples provided by our model.
+\begin_inset Newline newline
+\end_inset
+
+For example, given k = 5, we evaluate the percentage of the correct tuples
+ found in the top 5 ranked tuples in all of the detected anomalies.
+ Our experimentation showed high accuracy (92%) attained from k=4 and 100%
+ accuracy at k=7.
+ We also evaluated a model which chooses tuples at random and presented
+ its accuracies as well.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename C:/R Workspace/Anomaly-Lead-Extraction/Model Accuracy Graph.png
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+Accuracy measures as a function of k-top results.
+ Red line shows accuracy by a random tuple selection process
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Appendix
 \end_layout
 
 \begin_layout Subsection
@@ -803,109 +1201,6 @@ We used the Ward's method to clusetr the subsets by their score.
  No apriori information about the number of clusters required.
  We choose the closest cluster to the origin and take the subsets which
  correspond to the cluster cases as mentioned in section 2.
-\end_layout
-
-\begin_layout Subsection
-Rank subsets
-\end_layout
-
-\begin_layout Section
-Synthetic Data Set
-\end_layout
-
-\begin_layout Standard
-The goal is to create a supervised data set for illustrating and testing
- our model.
- We aimed to synthesize data which preserves our data properties in terms
- of seasonality and trend.
- But, we didn't want to synthesize a very simillar data set, because, our
- goal was to create a generic method.
- So, the creation of points around that seasonality and trend, didn't rely
- on the original data set events charasteristic (as their standard deviation
- around the mean etc.).
- 
-\end_layout
-
-\begin_layout Subsection
-creating data set
-\end_layout
-
-\begin_layout Standard
-First of all, to acheive the main properties about our data, we trimmed
- the events with request duration value greater than 
-\begin_inset Formula $\pm$
-\end_inset
-
-3 standard deviations from the mean.
- In order to create seasonality and trend, we calculated the average request
- duration per day and per hour.
- Furthermore we calculated the ratio of the average request duration of
- an hour and average request duration of a day, assuming that this ratio
- is similiar for each hour and day (based on the seasonality we have seen
- in our data).
- For each hour we created approximately 4000 (number of events per hour
- on average) random time stamps, then attached to it request duration values
- that were generated from normal distribution with proper mean and standard
- deviation for this hour.
- We added to this data frame another 4 columns which represents our attributes.
- Each coulmn values were generated from different discrete distributions.
- The choice of discrete distributions is owing to the fact that our original
- features are categorical.
- 1 attribute was chosen from discrete uniform distribution, 2 attributes
- from (different) binomial distributions and another attribute from poisson
- distribution.
- 
-\end_layout
-
-\begin_layout Subsection
-insert anomalies
-\end_layout
-
-\begin_layout Standard
-At this point we want to inject artificial anomalies in random time stamps,
- and randomly choose how many features and which features to be the cause
- of the anomaly.
- In addition, we generated randomly a value which is the strength of the
- anomaly.
- That way, we will have different kind of anomalies (global and seasonal).
- For each event in the anomaly time range that contains the 
-\begin_inset Quotes eld
-\end_inset
-
-problematic
-\begin_inset Quotes erd
-\end_inset
-
- features, we increase the request duration- add to this value the multiplicatio
-n of the strengh of the anomaly with the standard deviation that was calculated
- the previous stage.
- We recored the properties of each anomaly so we can measure our result
- on the synthetic data.
- In the end, we export our synthetic data frame to csv file.
- Illustration of the synthetic data with anomalies:
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename 100_5-15.png
-	scale 70
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Section
-Testing
-\end_layout
-
-\begin_layout Subsection
-Anomaly detection accuracy
-\end_layout
-
-\begin_layout Section
-Appendix
 \end_layout
 
 \begin_layout Subsection

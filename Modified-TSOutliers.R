@@ -93,12 +93,6 @@ stl_resid <- function(x)
   # Use super-smoother on the (seasonally adjusted) data
   tt <- 1:n
   mod <- supsmu(tt,x)
-  # plot(as.numeric(x), main = "Seasonally Adjusted Time Series", 
-  #      ylab = "Seasonally Adj. Values")
-  # lines(mod$y, lwd = 2, col = 3)
-  # legend("top", c("Expected Value", "Original Value"), col = c(3, 1), lty = 1)
-  # hist((x - mod$y) / sd(mod$y), breaks = 100, 
-  #      main = "Histogram of Residuals" ,xlab = "Residuals")
   resid <- (x - mod$y) / sd(mod$y)
   resid
 }

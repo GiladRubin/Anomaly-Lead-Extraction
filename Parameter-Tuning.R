@@ -9,6 +9,7 @@ ipak(c("data.table", "forecast", "zoo", "lubridate", "stringr",
 #load dataset
 #table_name <- "clean_requests"
 table_name <- "synthetic_data"
+
 dt <- get_dt_from_table(table_name)
 win_sizes <- seq(1, 15, 1)
 iqr_factors <- seq(1, 10, 0.5)

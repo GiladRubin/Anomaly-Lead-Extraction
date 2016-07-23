@@ -131,15 +131,12 @@ Based on our data exploration process, we have discovered that many anomalies
 
 It is clear to see that the subset of data with attribue RoleInst = RD000D3A002C
 F6 is a potential lead for the anomaly seen in the plot.
- Our goal is to find the most informative leads for anomalies in a time
- series that will make the Anomaly Detection and Inspection more accurate
- and efficient.
  
 \begin_inset Newline newline
 \end_inset
 
 In order to detect the underlying causes for the anomalies seen in the data,
- we implemented a model which consists of two main steps: we first use an
+ we implemente a model which consists of two main steps: we first use an
  anomaly detector on the whole dataset to identify individual records with
  anomalous attribute values (the KPI attribute), secondly, we detect and
  rank leads for the underlying causes for the given anomolous records.
@@ -163,7 +160,7 @@ To evaluate the proposed method, we synthesized data and investigated the
 Model workflow
 \end_layout
 
-\begin_layout Subsection
+\begin_layout Standard
 The workflow of our model is depicted below:
 \begin_inset Newline newline
 \end_inset
@@ -177,48 +174,43 @@ The workflow of our model is depicted below:
 \end_inset
 
 
+\end_layout
+
+\begin_layout Standard
+\noindent
+The passed data set to analyze has to be composed from events over time.
+ Each event has to consist the KPI attribute (continuous vlaues), a time
+ stamp attribute and categorical attributes related to that event.
+ The anomaly detection algorithms we used works on aggregated data.
+ which means, divide the data according to a time window, calculate the
+ average of the KPI attribute in each window and create a new data set composed
+ of time series and the aggregated values.
+ To decide on the time window size, we used an algorithm which optimize
+ the time window value for supervised dataset.
+ To achieve that, we used our synthetic supervised data set.
+ Hence, for the input data set we aggregate it by the time window we've
+ got.
+ We passed that new data set to the STL decomposition algorithm for anomaly
+ detection.
+ In that phase, the application end-user can see the graph with the anomalies
+ highlited in colors according to its severe.
+ Now, after finding the anomalies we suggesting the option to choose an
+ anomaly by date for analysis.
+ 
 \begin_inset Newline newline
 \end_inset
 
-In order to analyze a given dataset, each record in it must contain a Timestamp,
- a KPI attribute (numeric value) and categorical attributes related to that
- event.
-\end_layout
-
-\begin_layout Subsection
-With the abovementioned generic dataset, we aggregate the events into a
- pre-defined time window, calculate the average of the KPI attribute in
- each window and create a time series based on these values.
- 
-\end_layout
-
-\begin_layout Subsection
-In order to choose the optimal time-window size, we implemented an algorithm
- which searches through different time windows and other parameters related
- to the outlier detection algorithm and used the values which gave the highest
- f-score using a labeled synthesized dataset.
- 
-\begin_inset Newline newline
-\end_inset
-
-With the previously selected optimal parameters, we insert the time series
- into an anomaly detection algorithm, based on STL decomposition (See ......)
- and present the detected anomalies to the end-user, highlighted in colors
- according to their severety.
- 
-\end_layout
-
-\begin_layout Subsection
-Following the anomaly detection procedure, we treat each anomaly seperately
- by taking all the combinations of attribute-values that exist in the anomaly
- time window, limited to a combination of up to 3 attributes.
- for instance if the anomaly window contains the records: 
+Per each anomaly we take all the combinations of values that exist in the
+ anomaly time window.
+ up to 3 values.
+ for instance if the anomaly window contains the the records: 
 \begin_inset Newline newline
 \end_inset
 
 
 \begin_inset Graphics
 	filename demonstrate for workshop.emf
+	lyxscale 10
 	scale 10
 
 \end_inset
@@ -227,134 +219,67 @@ Following the anomaly detection procedure, we treat each anomaly seperately
 \begin_inset Newline newline
 \end_inset
 
-The following 1-tuple combinations can be: (attribute 1 = 2); (attribute
- 1 = 10); (attribute 2 = 1); (attribute 2 = 5) etc...
+,off course that in real life a combination usually repeat itself in a lot
+ of records, than a combination can be up to 3 values where each value from
+ different attribute.
+ for example (2,9) from attributes 1 and 4, and (10, 5, 4) from attributes
+ 1,2, 3 and so on..
 \begin_inset Newline newline
 \end_inset
 
-With a combination of k-tuples, we perform a cartesian product between the
- distinct values of each feature of the k-features, for example, with k=3:
- (attribute 1 = 2, attribute 2 = 1, attribute 3 = 7); (attribute 1 =2, attribute
- 2 = 5, attribute 3 = 4) etc...
+Now, for each tuple we create new data set by reducing the records containing
+ this tuple from the main data set.
+ then, we aggregate the data set as explained before and run the STL algorithm.
+ Intuitively, if the algorithm doesn't return anomaly on the same point
+ the anomaly was before the tuple reduction, we have a srong indication
+ that this tuple may caused the anomaly.
+ From the algorithm results we get the anomalies and the predictive values
+ for each point on the time series.
+ If on the new data set the anomaly remains, significantly different from
+ the expected value by confidance level of 95%.
+ it means that this tuple wasn't the cause for that anomaly.
+ For the suspiciuos tuples (the ones that could cause the anomaly) we use
+ the results to measure 3 different scores that supply informative data
+ on those tuples:
 \end_layout
 
-\begin_layout Subsection
-Given a tuple a specific anomaly, we create a new data set by eliminating
- the records containing this tuple from the original data set.
- then, we aggregate the data set as explained before and run the same anomaly
- detection on the filtered dataset.
- Our hypothesis is that if the algorithm doesn't show an anomaly on the
- same point as the inspected anomaly - we have a strong indication that
- this tuple may be an informative lead for the anomaly.
- We have confirmed this hypothesis via our tests (See .......).
- 
+\begin_layout Enumerate
+New distance - at the anomaly point, the new distance from the expected
+ value in standard deviation (the lower it is the stronger indication this
+ tuple caused the anomaly)
 \end_layout
 
-\begin_layout Subsection
-At this stage, we have an indication for each tuple whether its corresponding
- filtered time series had an anomolous event at the inspected time window.
- If the filtered time series still contains an anomaly at the inspected
- time window - we can infer that this tuple is not a good lead to finding
- the cause for that anomaly.
- However, in the opposite case, we believe that the end-user should be able
- to inspect this tuple as a lead to the cause for the anomaly.
+\begin_layout Enumerate
+Unique anomalies - how much anomalies found that didn't appear on the former
+ data set (which indicates ...)
 \end_layout
 
-\begin_layout Subsection
-Because there might be several anomalies that we believe are potential leads,
- we rank and sort them using 3 measures attained from our algorithm:
+\begin_layout Enumerate
+Overall anomalies = 1- The percentage of common anomalies for both data
+ sets.
+ which means, the percentage of anomalies this tuple removed from the origin
+ data set.
+ that gives an indication if this tuple is problematic, causing a lot of
+ anomalies.
+ (maybe false positive, maybe allready known problem...).
+ make it feasible to carry out a review of all the historical events related
+ to that context of the data
 \end_layout
 
-\begin_layout Subsubsection
-\begin_inset Quotes eld
-\end_inset
-
-New Distance
-\begin_inset Quotes erd
-\end_inset
-
- score - at the anomaly point, what is the absolute distance in standard
- deviations between the expected value generated in the anomaly detection
- algorithm and the actual value of the time series at that point.
- The lower the score, the stronger indication that this tuple caused the
- anomaly.
-\end_layout
-
-\begin_layout Subsubsection
-\begin_inset Quotes eld
-\end_inset
-
-Unique Anomalies
-\begin_inset Quotes erd
-\end_inset
-
- - the number of anomalies found in the filtered time series that didn't
- appear in the original time series.
- We use this metric in order to as an efficient indicator for the dissimalirity
- between the two time series.
- The lower the number, the higher the probability that the two time series
- are similar.
-\end_layout
-
-\begin_layout Subsubsection
-\begin_inset Quotes eld
-\end_inset
-
-Overall Anomalies
-\begin_inset Quotes erd
-\end_inset
-
- - the percentage of anomalies that the filtered time series agrees with
- the original time series.
- This is another indication of the similarity between the time series, but
- for lower numbers - it can tell us that the inspected lead is a potential
- cause for many anomalies in other time points.
-\end_layout
-
-\begin_layout Subsection
-After having the scores for all the tuples that show no anomaly at the specified
- time, we cluster them according to both metrics (after standartization):
- 
-\begin_inset Quotes eld
-\end_inset
-
-New Distance
-\begin_inset Quotes erd
-\end_inset
-
- and 
-\begin_inset Quotes eld
-\end_inset
-
-Unique Anomalies
-\begin_inset Quotes erd
-\end_inset
-
-.
- After some experiments we concluded that combining these two features as
- the main ranking scheme will provide a good estimate of the effect each
- tuple had on the anomaly.
-\end_layout
-
-\begin_layout Subsection
-We sort the clusters by their proximity to the origin (0,0), beacuse the
- lower both scores are the greater the probability for the tuple to be a
- good lead for the anomaly.
- 
-\end_layout
-
-\begin_layout Subsection
-Finally, we present to the end user a list which consist of all that tuples,
- ordered by the cluster distance from the origin and with a secondary sorting
- using the third score: 
-\begin_inset Quotes eld
-\end_inset
-
-Overall Anomalies
-\begin_inset Quotes erd
-\end_inset
-
-.
+\begin_layout Standard
+After having the scores for all the remainig tuples, we cluster them according
+ to scores New distane and Unique anomalies.
+ After some experiments we figuerd out that only the first score is not
+ enough because if the tuple records are a major portion of the data.
+ the new time series is not similar to the old one and the fact that there
+ is no anomaly on that point in the new time series can result from the
+ fact that a big number of records were removed.
+ so using the second score is to solve just that.
+ From the clustered tuples we take the closest cluster to the origin.
+ beacuse the lower both scores are the greater percentage the tuple explain
+ the anomaly.
+ We present to the end user a list consist from all that tuples ordered
+ by the third score overall anomalies.
 \end_layout
 
 \begin_layout Section
@@ -362,15 +287,7 @@ Data Preparation Process
 \end_layout
 
 \begin_layout Standard
-We chose to focus on the Request Duaration KPI, as seen in the 
-\begin_inset Quotes eld
-\end_inset
-
-requests
-\begin_inset Quotes erd
-\end_inset
-
- datasets provided by Microsoft.
+We chose to focus on the request duaration KPI.
  The data preprocessing can be summarized in two steps:
 \end_layout
 
@@ -379,22 +296,23 @@ Select and Preprocess data
 \end_layout
 
 \begin_layout Standard
-We picked the relevant 
-\begin_inset Quotes eld
+We've noticed there is a lot of data available which contains information
+ about request duration, our chosen KPI.
+ We picked the relevant files and merge them to one csv file with all the
+ information.
+\begin_inset Newline newline
 \end_inset
 
-requests
-\begin_inset Quotes erd
-\end_inset
-
- files and merge them to one csv file with all the information, filtering
- out columns that had full correlation to other column and columns that
- were very sparse (more than 80% missing values).
- We ended up with a large data set (~700K rows), where each row represents
- a request event with request duration, time stamp and some more attributes.
- Furthermore, we filtered out record with timestamps after 2015-10-07 18:00,
- since these records had insufficient amount of data points for our time-series
- analysis.
+We filtered out columns that had full corelation to other column (where
+ the remain column explian the other) and columns that were very sparse
+ (more than 80% missing values).
+ We ended up with a large data set (~700K rows), each row represents a request
+ event with request duration, time stamp and some more attributes.
+ In this created data set we replaced the nan values with Null value, gave
+ the correct type for each attribute: date time for timestamp, float for
+ request duration and categorical to the rest attributes.
+ Furthermore, the data was noncontinuous from the date: 2015-10-07 18:00.
+ and due to our on the continuity and seasonality of the data 
 \end_layout
 
 \begin_layout Subsection
@@ -402,21 +320,11 @@ Transform Data
 \end_layout
 
 \begin_layout Standard
-As explained in the Model Workflow section, the main transformation applied
- on our datasets is aggregation by a defined time-window.
- In order to find the optimal time-window - we ran a search over tuples
- of parameters with changing time-windows and picked the best performing
- parameters, according to the f-score derived from comparing the detected
- anomalies to the labeles examples in a synthesised dataset.
- 
-\begin_inset Newline newline
-\end_inset
-
-In a real world application, we would have to manually define what considers
- as an anomaly in our dataset, since there can be many interpretations of
- what is an anomaly.
- Our implementation includes a process which recieves a dataset and an array
- of anomaly times and selects the optimal parameters for this dataset.
+As explained in the above section.
+ we divided the data according to the time window received from the algorithm
+ we ran on the synthetic data (add algorithm explanation..), we calculated
+ the average of the KPI attribute in each window and create a new data set
+ composed of time series and the aggregated values
 \end_layout
 
 \begin_layout Section
@@ -424,194 +332,37 @@ Anomaly detection
 \end_layout
 
 \begin_layout Subsection
-ARIMA-based Anomaly Detection
+Approaches:
 \end_layout
 
 \begin_layout Standard
-Since our workflow involves detection of anomalies in a very large amount
- of time series, our goal was to find an algorithm for anomaly detection
- which combines good accuracy and fast performance times.
- In our search for this kind of algorithm, we have tested an anomaly detection
- process based on modeling an ARIMA model with 2 different fourier terms
- (to account for the daily and weekly seasonality) and finding data points
- which are located outside of the confidence interval generated by the model.
- We also tested the function 
-\begin_inset Quotes eld
-\end_inset
+we implemented 3 different algorithms for anomaly detection...
+\end_layout
 
-tso
-\begin_inset Quotes erd
-\end_inset
+\begin_layout Subsubsection
+TSO
+\end_layout
 
- in the package 
-\begin_inset Quotes eld
-\end_inset
+\begin_layout Standard
+....
+ blabla.r with the code
+\end_layout
 
-tsoutliers
-\begin_inset Quotes erd
-\end_inset
+\begin_layout Subsubsection
+Arima
+\end_layout
 
-, that also performs an iterated version of the ARIMA fitting process by
- removing outliers in the first stage, re-fitting of the model and removal
- of the next outliers until it reaches a stopping criterion.
- 
-\begin_inset Newline newline
-\end_inset
-
-These two methods were tested on our datasets and although they showed good
- accuracy in detection of anomalies - their performance measurments showed
- that they were inadequate for this type of workflow.
- 
+\begin_layout Subsubsection
+STL
 \end_layout
 
 \begin_layout Subsection
-STL Decomposition Anomaly Detection
+comparison and which one we chose
 \end_layout
 
 \begin_layout Standard
-In contrast to the abovementiond methods, there exists a very accurate and
- efficient algorithm, based on STL Decomposition, found in the 
-\begin_inset Quotes eld
-\end_inset
-
-forecast
-\begin_inset Quotes erd
-\end_inset
-
- package in R (tsoutliers).
-\begin_inset Newline newline
-\end_inset
-
-The algorithm performs a seasonality adjustment on the time series using
- an STL decomposition and smoothing of the Trend element using Friedman's
- 
-\begin_inset Quotes eld
-\end_inset
-
-Super Smoother
-\begin_inset Quotes erd
-\end_inset
-
- Algorithm.
- It subtracts the 
-\begin_inset Quotes eld
-\end_inset
-
-smoothed
-\begin_inset Quotes erd
-\end_inset
-
- trend from the seasonally adjusted time series and tests this new time
- series of residuals for deviations from a normal distribution, based on
- its Interquartile Ranges.
- A demonstration of this process on the 
-\begin_inset Quotes eld
-\end_inset
-
-Requests
-\begin_inset Quotes erd
-\end_inset
-
- dataset is depicted via the following figures:
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Float figure
-wide false
-sideways false
-status open
-
-\begin_layout Plain Layout
-\align center
-\begin_inset Graphics
-	filename STL.png
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Plain Layout
-\align center
-STL Decomposition on 
-\begin_inset Quotes eld
-\end_inset
-
-Requests
-\begin_inset Quotes erd
-\end_inset
-
- dataset, showing the original series, the seasonal element, trend and residuals
-\end_layout
-
-\begin_layout Plain Layout
-\align center
-\begin_inset Graphics
-	filename STL-Smooth.png
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Plain Layout
-\align center
-Seasonally-Adjusted 
-\begin_inset Quotes eld
-\end_inset
-
-Requests
-\begin_inset Quotes erd
-\end_inset
-
- time series with the smoothed Trend line over it as the expected value
-\end_layout
-
-\begin_layout Plain Layout
-\align center
-\begin_inset Graphics
-	filename STL Residuals.png
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Plain Layout
-\align center
-Residuals from the 
-\begin_inset Quotes eld
-\end_inset
-
-expected value
-\begin_inset Quotes erd
-\end_inset
-
- (Smooth trend line) and the Seasonally-Adjusted time series.
- It is clear that the residuals conform to a normal distribution with mean
- 0, with some outliers outside the third quartile of the distribution
-\end_layout
-
-\begin_layout Plain Layout
-\align center
-\begin_inset Graphics
-	filename Detected Anomalies.png
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Plain Layout
-\align center
-Plot of the Requests time series, aggregated by a 5-min time window with
- the anomalies highlighted by their severity
-\end_layout
-
-\end_inset
-
-
+pros and cons/ trade offs of those approaches and which one we chose to
+ our model and why
 \end_layout
 
 \begin_layout Section
@@ -619,74 +370,16 @@ Anomaly characterization
 \end_layout
 
 \begin_layout Subsection
-Detecting Potential Leads for Anomalies
+Finding suspicious subsets
 \end_layout
 
 \begin_layout Standard
-Throughout the process of considering different business cases to address
- in our project, we performed a survey on anomaly detection algorithms.
- We discovered that there are many processes that assist in detecting anomalies
- in time series data, but we could not find any method for pointing out
- possible causes for the anomalies seen in the data.
-\begin_inset Newline newline
-\end_inset
-
-For this reason, we have decided to design a workflow that its main goal
- is to channel analysts efforts into the most probable causes of each anomaly,
- by providing a ranked list of probable leads.
- In order to provide this information in an accurate and informative manner,
- we decided to focus our attention on expanding the search space for potential
- leads, at the cost of performance times.
-\begin_inset Newline newline
-\end_inset
-
-We have tested 3 different approaches for this task:
+we tried 3 different approaches, explained below.
+ 
 \end_layout
 
 \begin_layout Subsubsection
-Regression Tree
-\end_layout
-
-\begin_layout Standard
-Given a time window labeled as an anomaly, we were able to fit a regression
- tree on the values of residuals for each record in the dataset.
- The output of the model was a tree for which each node represents a tuples
- of features along with their mean residual value.
- Its main strength is in its simplicity and efficiency - it has the ability
- to combine huge categorical variables into a short set of interpertable
- rules.
- Furthermore, it implicitly inclues variable selection and in-feature grouping
- of values.
- We used those properties and the fact that regression trees is relatively
- fast, even with large data sets, for optimization purposes.
- 
-\begin_inset Newline newline
-\end_inset
-
-However, this model relies on the assumption that the higher the residuals
- - the higher the probabilty of being a potential lead.
- This may not be the case in various time series.
- 
-\begin_inset Newline newline
-\end_inset
-
-Consider the situation where the request duration times for US residents
- is usually lower than average and the request duration times of Russian
- residents is usually higher than average.
- If at a certain time window the servers which attend to US residents fail
- to provide fast response times - their request time will increase, but
- perhaps not above the average duration of Russian residents.
- In this case, there will be an anomaly in the time series and the Regression
- Tree will be biased towards emphasizing tuples of features including Russian
- residents instead of US residents.
- 
-\begin_inset Newline newline
-\end_inset
-
-For this reason, we have decided to test a different method, which relies
- on the finding anomalies based on the change in distance between subsets
- of the populations compared to the original time series without the subset's
- records.
+New time series
 \end_layout
 
 \begin_layout Subsubsection
@@ -722,19 +415,46 @@ You can learn more about the implementation of this procedure in the appendix
 \end_layout
 
 \begin_layout Subsubsection
+Regression tree classifier
+\end_layout
+
+\begin_layout Standard
+For an anomaly, we take the predictive value received from the STL algorithm
+ (explained above).
+ For each tuple that exist in the anomaly time window, we calculated the
+ distance in standard deviation (received also by the algorithm) from the
+ predictive value.
+ We used the regression tree algorithm for clustering those tuples according
+ to that distance and limiteded the tree depth to level 4.
+ Regression tree do not require the assumptions of statistical models and
+ has the ability to automatically bin massively categorical variables into
+ a few categories.
+ Hence, variable selection & reduction is done automaticly.
+ We used those properties and the fact that regression trees is relatively
+ fast, even with large data sets, for optimization.
+ Instead of anlayze the whole features values combinations, We looked only
+ at the values combinations created by the tree.
+ when a combination is not only the nodes on a path from root to a leaf.
+ but also all the subgroups of this path (from root to node).
+ Because, those values explain in a good way the distribution of the tuples
+ around the anomaly.
+ this approach improves the efficiency of the model but lower the accuracy
+\end_layout
+
+\begin_layout Subsubsection
 winning approach
 \end_layout
 
 \begin_layout Standard
 because the emphasis of our model is on characterize the anomalies with
- high accuracy relatively faster, optimization for subsets selection..
+ high accuracy
+\end_layout
+
+\begin_layout Standard
+relatively fasr, optimization for subsets selection..
  easy to understand.
  accuracy nore important because we emphasis on characterization we decided
  to analyze all the subsets 
-\begin_inset Newline newline
-\end_inset
-
-parallelize
 \end_layout
 
 \begin_layout Subsection
@@ -864,6 +584,74 @@ Testing
 
 \begin_layout Subsection
 Anomaly detection accuracy
+\end_layout
+
+\begin_layout Standard
+We measured the accuracy of the anomaly detection process using F-score.
+ It considers both the precision and the recall and can be interpreted as
+ the harmonic mean of this two scores.
+ F-score reaches its best value at 1 and worst at 0.
+ 
+\begin_inset Newline newline
+\end_inset
+
+To explain our calculation we first define the following parameters:
+\begin_inset Newline newline
+\end_inset
+
+tp (true positive) = #anomalies correctly labeled as anomalies 
+\begin_inset Newline newline
+\end_inset
+
+fp (false positive) = #anomalies incorrectly labled as anomalies 
+\begin_inset Newline newline
+\end_inset
+
+fn (false negative) = #anomalies that were not labeled as anomalies
+\begin_inset Newline newline
+\end_inset
+
+Precision = 
+\begin_inset Formula $\frac{tp}{tp+fp}$
+\end_inset
+
+ , meaning, from all the anomalies our model detected what is the percentage
+ we were right
+\begin_inset Newline newline
+\end_inset
+
+Recall = 
+\begin_inset Formula $\frac{tp}{tp+fn}$
+\end_inset
+
+ , meaning from all the anomalies actuall exist in the data what is the
+ prcentage that we detected
+\begin_inset Newline newline
+\end_inset
+
+F-score = 
+\begin_inset Formula $2*\frac{precision*recall}{precision+recall}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Leads revealed accuracy
+\end_layout
+
+\begin_layout Standard
+as mentioned in section 5, the output of our model for every detected anomaly
+ are the leads for that anomaly ranked by overall anomalies score.
+ the accuracy for this process is measured as the precentage of anomalies
+ the right tuple apeared as a result.
+ Furthermore we measures the accuracy regarding the top k leads.
+ Demonstration to out precision is depicted below.
+ 
+\end_layout
+
+\begin_layout Section
+Conclusions
 \end_layout
 
 \begin_layout Section
