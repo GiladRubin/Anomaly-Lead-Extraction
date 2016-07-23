@@ -20,7 +20,7 @@ ui <- shinyUI(fluidPage(theme = shinytheme("cerulean"),
       h1("Anomaly Lead Detector", align = "center", style = "font-family: 'Lobster'")
     ),
     fluidRow(
-      selectInput("select", label = h3("Select box"), 
+      selectInput("select", label = h3("Select Dataset"), 
       choices = list("Requests" = "clean_requests", 
                      "Synthetic Dataset" = "synthetic_data"), 
       selected = "clean_requests")
