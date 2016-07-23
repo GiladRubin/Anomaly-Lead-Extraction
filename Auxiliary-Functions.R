@@ -7,11 +7,12 @@ ipak <- function(pkg){
   sapply(pkg, require, character.only = TRUE)
 }
 
-ipak(c("arules", "NbClust", "data.table", "forecast", "zoo", 
-       "lubridate", "stringr", "fasttime", "xts", "utils", "stats"))
+ipak(c("arules", "NbClust", "data.table", "forecast", "zoo",
+       "lubridate", "stringr", "fasttime", "xts", "utils", "stats",
+                                    "shiny", "shinythemes","ggplot2"))
 
 source(file = "Modified-TSOutliers.R")
-
+Sys.setenv(TZ = "GMT")
 #################################
 ## Basic Functions on Data Tables
 #################################
