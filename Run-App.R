@@ -1,7 +1,6 @@
 if (!"shiny" %in% installed.packages()[, "Package"])
 {
   install.packages("shiny", dependencies = TRUE)
-  library("shiny")
 }
+library("shiny")
 runGitHub(repo = "GiladRubin/Anomaly-Lead-Extraction")
-

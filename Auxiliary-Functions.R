@@ -7,13 +7,13 @@ ipak <- function(pkg){
   sapply(pkg, require, character.only = TRUE)
 }
 
-packs <- (c("arules", "NbClust", "data.table", "forecast", "zoo",
+packages <- (c("arules", "NbClust", "data.table", "forecast", "zoo",
             "lubridate", "stringr", "fasttime", "xts", "utils", "stats",
                       "DT", "devtools", "shiny", "shinythemes","ggplot2"))
 
 ipak(packages)
 
-update.packages(ask=FALSE, checkBuilt = TRUE, oldPkgs = packs)
+#update.packages(ask=FALSE, checkBuilt = TRUE, oldPkgs = packages)
 
 source(file = "Modified-TSOutliers.R")
 Sys.setenv(TZ = "GMT")
