@@ -321,7 +321,7 @@ cluster_tuples <- function(tuples_dt)
   } else {
     nb <- NbClust(data = clust_dt,
                   min.nc=min(nitems - 1, 5),
-                  max.nc = nitems - 1,
+                  max.nc = min(10, nitems - 1),
                   method = "ward.D2",
                   index = "hartigan")
     tuples_dt[, cluster := nb$Best.partition] 

@@ -1,7 +1,5 @@
 rm(list = ls())
 source(file = "Auxiliary-Functions.R")
-## Install Packages
-ipak(c("data.table"))
 
 table_name <- "synthetic_data"
 dt <- get_dt_from_table(table_name)
